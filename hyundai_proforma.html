@@ -640,6 +640,18 @@ const mapeoCategorias = {
   'SUV Premium': ['Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX']
 };
 
+// Alias de nombres viejos (Airtable) -> nombre canónico (configuracionPrecios)
+// Esto permite que el sistema reconozca modelos cuyos nombres en Airtable
+// son distintos a los nombres oficiales de la lista de precios.
+const aliasNombres = {
+  'Tucson 2.0L A/T Premium': 'Tucson 2.0L A/T 2WD GLS',
+  'Tucson 2.0L A/T Limited': 'Tucson 2.0L A/T 4WD GLX',
+  'Tucson Premium':          'Tucson 2.0L A/T 2WD GLS',
+  'Tucson Limited':          'Tucson 2.0L A/T 4WD GLX',
+  'Tucson 2.0L Premium':     'Tucson 2.0L A/T 2WD GLS',
+  'Tucson 2.0L Limited':     'Tucson 2.0L A/T 4WD GLX'
+};
+
 const CTZ_PLANES = [
   { id: 1, meses: 12, tasa: 0.12, comision: 0.040, nombre: 'CTZ Plan 12 meses' },
   { id: 2, meses: 18, tasa: 0.16, comision: 0.045, nombre: 'CTZ Plan 18 meses' },
@@ -942,13 +954,23 @@ function obtenerCategoria(nombreModelo) {
 }
 
 // Devuelve el nombre canónico del modelo (la clave de configuracionPrecios / mapeoCategorias)
-// Si no hay match exacto, devuelve el nombre original
+// Prioridad: alias explícito -> configuracionPrecios -> mapeoCategorias -> original
 function nombreCanonico(nombreModelo) {
+  if (!nombreModelo) return nombreModelo;
+  // 1) Match exacto en alias (nombres viejos de Airtable -> canónico)
+  if (Object.prototype.hasOwnProperty.call(aliasNombres, nombreModelo)) {
+    return aliasNombres[nombreModelo];
+  }
   const target = normName(nombreModelo);
+  // 2) Match normalizado en alias
+  for (const k of Object.keys(aliasNombres)) {
+    if (normName(k) === target) return aliasNombres[k];
+  }
+  // 3) Match normalizado en configuracionPrecios
   for (const canonico of Object.keys(configuracionPrecios)) {
     if (normName(canonico) === target) return canonico;
   }
-  // Buscar también en mapeoCategorias
+  // 4) Match normalizado en mapeoCategorias
   for (const cat of Object.keys(mapeoCategorias)) {
     for (const m of mapeoCategorias[cat]) {
       if (normName(m) === target) return m;

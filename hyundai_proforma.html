@@ -927,20 +927,40 @@ function obtenerDesglose(nombreModelo) {
   return { pvp: cfg.pvp, ...calcularDesglose(cfg.pvp, cfg.gastos) };
 }
 
-// Devuelve la categoría a la que pertenece un modelo
+// Normaliza un nombre para match robusto: minúsculas, sin acentos, sin espacios/guiones/puntos
+function normName(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\-_]/g, '').trim();
+}
+
+// Devuelve la categoría a la que pertenece un modelo (match robusto)
 function obtenerCategoria(nombreModelo) {
+  const target = normName(nombreModelo);
   for (const cat of Object.keys(mapeoCategorias)) {
-    if (mapeoCategorias[cat].includes(nombreModelo)) return cat;
+    if (mapeoCategorias[cat].some(m => normName(m) === target)) return cat;
   }
   return 'Otros';
 }
 
+// Devuelve el nombre canónico del modelo (la clave de configuracionPrecios / mapeoCategorias)
+// Si no hay match exacto, devuelve el nombre original
+function nombreCanonico(nombreModelo) {
+  const target = normName(nombreModelo);
+  for (const canonico of Object.keys(configuracionPrecios)) {
+    if (normName(canonico) === target) return canonico;
+  }
+  // Buscar también en mapeoCategorias
+  for (const cat of Object.keys(mapeoCategorias)) {
+    for (const m of mapeoCategorias[cat]) {
+      if (normName(m) === target) return m;
+    }
+  }
+  return nombreModelo;
+}
+
 // Devuelve las categorías que tienen al menos un modelo en `listaModelos`
 function categoriasConModelos(listaModelos) {
-  const nombres = new Set(listaModelos.map(v => v.name));
-  return CATEGORIAS.filter(c =>
-    c === 'Todos' || mapeoCategorias[c].some(m => nombres.has(m))
-  );
+  const cats = new Set(listaModelos.map(v => obtenerCategoria(v.name)));
+  return CATEGORIAS.filter(c => c === 'Todos' || cats.has(c));
 }
 
 // Datos fiscales oficiales de la empresa (constantes para PDF y forma de pago)
@@ -1546,17 +1566,22 @@ async function fetchVehiculos() {
     // Match con catalogo estatico para conservar ficha tecnica detallada
     const staticMatch = backupData.find(v => normalize(v.name) === normalize(name));
 
-    // PVP/Precio: PRIORIDAD → configuracionPrecios (oficial) → staticMatch → Airtable
+    // Nombre canónico: si hay match en backupData o configuracionPrecios, usar ese
     const cfgOficial = configuracionPrecios[name];
-    const pvp = cfgOficial ? cfgOficial.pvp
+    const canonico = staticMatch ? staticMatch.name
+                   : cfgOficial ? name
+                   : nombreCanonico(name);
+
+    // PVP/Precio: PRIORIDAD → configuracionPrecios (oficial) → staticMatch → Airtable
+    const cfgFinal = configuracionPrecios[canonico];
+    const pvp = cfgFinal ? cfgFinal.pvp
               : staticMatch ? Number(staticMatch.pvp) || Number(staticMatch.price) || 0
               : Number(f.Precio) || 0;
-    const gastos = cfgOficial ? cfgOficial.gastos
+    const gastos = cfgFinal ? cfgFinal.gastos
                  : staticMatch ? Number(staticMatch.gastos) || 0
                  : 0;
-    const category = cfgOficial ? obtenerCategoria(name)
-                    : staticMatch ? (staticMatch.category || obtenerCategoria(name))
-                    : obtenerCategoria(name);
+    const category = staticMatch ? (staticMatch.category || obtenerCategoria(canonico))
+                    : obtenerCategoria(canonico);
 
     const motor = (f.Motor || '').toString();
     const transmision = (f['Transmisi\u00f3n'] || '').toString();
@@ -1586,7 +1611,7 @@ async function fetchVehiculos() {
 
     liveVehicles.push({
       id: staticMatch ? staticMatch.id : 'at-' + r.id,
-      name: name,
+      name: canonico,           // <-- nombre canónico para match con mapeoCategorias
       pvp: pvp,
       gastos: gastos,
       price: pvp,  // alias para compatibilidad

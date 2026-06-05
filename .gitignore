@@ -1,0 +1,13 @@
+﻿# Archivos generados
+*.pdf
+*.tmp
+*.bak
+~$*
+# Credenciales locales (NUNCA subir al repo)
+config.js
+# Sistema
+Thumbs.db
+.DS_Store
+# IDE
+.vscode/
+.idea/

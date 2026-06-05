@@ -199,6 +199,22 @@
   </div>
 </header>
 
+<!-- BANNER DE TOKEN AIRTABLE (solo se muestra si no hay token configurado) -->
+<div id="tokenBanner" class="hidden bg-amber-50 border-b-2 border-amber-300">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+    <div class="flex-1 min-w-[200px]">
+      <div class="font-semibold text-amber-900 text-sm">Configurar acceso a Airtable</div>
+      <div class="text-xs text-amber-800">Pega tu Personal Access Token de Airtable para cargar el catálogo. Se guarda solo en este navegador.</div>
+    </div>
+    <input id="tokenInput" type="password" placeholder="patXXXXXXXXXXXXXX.XXXX..."
+           class="flex-1 min-w-[200px] max-w-md px-3 py-2 text-sm border border-amber-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none bg-white" />
+    <button id="tokenSaveBtn" class="px-4 py-2 bg-hyundai text-white text-sm font-semibold rounded-lg hover:bg-hyundai2 transition">
+      Guardar y cargar
+    </button>
+    <button id="tokenBannerClose" class="text-amber-700 hover:text-amber-900 text-xl leading-none" title="Cerrar">&times;</button>
+  </div>
+</div>
+
 <!-- STEPPER -->
 <div class="bg-white border-b border-slate-200">
   <div class="max-w-7xl mx-auto px-4 py-4">
@@ -533,9 +549,13 @@ const vehicleImages = {"Accent 1.5L A/T":"data:image/png;base64,iVBORw0KGgoAAAAN
    ----------------------------------------------------
    CONFIGURACIÓN REQUERIDA — Reemplaza los placeholders:
 */
-// Cargar credenciales desde config.js (archivo local, NO en el repo)
-const AIRTABLE_BASE_ID = (typeof AIRTABLE_CONFIG !== 'undefined' && AIRTABLE_CONFIG.baseId)  || 'appV6ZTIBbqWbviL0';
-const AIRTABLE_API_KEY = (typeof AIRTABLE_CONFIG !== 'undefined' && AIRTABLE_CONFIG.apiKey)  || '';
+// Cargar credenciales desde config.js (archivo local, NO en el repo) o desde localStorage
+const AIRTABLE_BASE_ID = (typeof AIRTABLE_CONFIG !== 'undefined' && AIRTABLE_CONFIG.baseId)
+  || localStorage.getItem('airtable_base_id')
+  || 'appV6ZTIBbqWbviL0';
+let   AIRTABLE_API_KEY = (typeof AIRTABLE_CONFIG !== 'undefined' && AIRTABLE_CONFIG.apiKey)
+  || localStorage.getItem('airtable_api_key')
+  || '';
 
 let   TASA_BCV   = 36.50;    // Tasa de cambio Bs/USD — se actualiza automáticamente desde DolarApi Venezuela
 const SEGURO_PCT = 0.035;    // 3.5% anual del valor del vehículo (referencial)
@@ -2053,9 +2073,54 @@ function resetForNewQuote() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ─────────────────────────────────────────────────────────────────────
+//  TOKEN BANNER — Pide el PAT de Airtable si no está configurado
+// ─────────────────────────────────────────────────────────────────────
+function setupTokenBanner() {
+  const banner   = document.getElementById('tokenBanner');
+  const input    = document.getElementById('tokenInput');
+  const saveBtn  = document.getElementById('tokenSaveBtn');
+  const closeBtn = document.getElementById('tokenBannerClose');
+  if (!banner) return;
+
+  // Mostrar solo si NO hay token y NO fue cerrado manualmente
+  const dismissed = localStorage.getItem('token_banner_dismissed') === '1';
+  if (!AIRTABLE_API_KEY && !dismissed) {
+    banner.classList.remove('hidden');
+  }
+
+  // Pre-rellenar con el baseId actual
+  if (input && !input.value) input.value = '';
+
+  const save = async () => {
+    const token = (input.value || '').trim();
+    if (!token || !token.startsWith('pat')) {
+      alert('Pega un Personal Access Token válido de Airtable (debe empezar con "pat").');
+      return;
+    }
+    localStorage.setItem('airtable_api_key', token);
+    localStorage.setItem('airtable_base_id', AIRTABLE_BASE_ID);
+    AIRTABLE_API_KEY = token;
+    banner.classList.add('hidden');
+    // Recargar datos con el nuevo token
+    if (typeof fetchVehiculos === 'function') await fetchVehiculos();
+    if (typeof fetchAsesores  === 'function') await fetchAsesores();
+  };
+
+  saveBtn?.addEventListener('click', save);
+  input?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  closeBtn?.addEventListener('click', () => {
+    localStorage.setItem('token_banner_dismissed', '1');
+    banner.classList.add('hidden');
+  });
+}
+
 async function init() {
   document.getElementById('proformaBadge').textContent = state.proformaCode;
   document.getElementById('footerTasa').textContent = TASA_BCV.toFixed(2);
+
+  // Mostrar banner de token si no hay token configurado
+  setupTokenBanner();
 
   // =====================================================
   // CARGA SÍNCRONA: el simulador NO permite acciones

@@ -248,8 +248,18 @@
       <h2 class="text-2xl md:text-3xl font-extrabold text-hyundai">Catálogo Hyundai 2026</h2>
       <p class="text-slate-600 mt-1">Selecciona el modelo que deseas financiar. Cada tarjeta incluye la ficha técnica oficial.</p>
     </div>
+
+    <!-- Filtro de categorías (se renderiza desde JS) -->
+    <div id="categoryBar" class="mb-5 flex flex-wrap gap-2">
+      <!-- JS inject category buttons -->
+    </div>
+
     <div id="vehicleGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <!-- JS inject cards -->
+    </div>
+
+    <div id="emptyCategoryMsg" class="hidden text-center py-12 text-slate-500">
+      <p class="text-lg font-semibold">No hay modelos en esta categoría.</p>
     </div>
   </section>
 
@@ -331,12 +341,14 @@
             <h3 class="text-lg font-bold" id="summaryPlanName">Banco Provincial 48m</h3>
           </div>
           <div class="p-5 space-y-3 text-sm">
-            <div class="flex justify-between"><span class="text-slate-500">Precio del vehículo</span><span class="font-semibold" id="sumPrice">$0.00</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Inicial (<span id="sumInitPct">30</span>%)</span><span class="font-semibold" id="sumInitial">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Subtotal (precio vehículo)</span><span class="font-semibold" id="sumPrice">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Inicial (<span id="sumInitPct">30</span>%)</span><span class="font-semibold text-rose-600" id="sumInitial">-$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Comisión Flat</span><span class="font-semibold" id="sumFlat">$0.00</span></div>
             <div class="flex justify-between" id="sumNotariaRow"><span class="text-slate-500">Gastos de Notaría</span><span class="font-semibold" id="sumNotaria">$0.00</span></div>
             <div class="flex justify-between" id="sumLogRow"><span class="text-slate-500">Logística/Transporte</span><span class="font-semibold" id="sumLog">$0.00</span></div>
             <div class="flex justify-between" id="sumAdminRow"><span class="text-slate-500">Gastos administrativos (total)</span><span class="font-semibold" id="sumAdmin">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">IVA (16%)</span><span class="font-semibold" id="sumIVA">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">IGTF (3%)</span><span class="font-semibold" id="sumIGTF">$0.00</span></div>
             <hr class="border-slate-200">
             <div class="flex justify-between text-hyundai font-bold text-base"><span>Monto a financiar</span><span id="sumFinanced">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Tasa aplicada</span><span class="font-semibold" id="sumRate">—</span></div>
@@ -600,6 +612,33 @@ const PROVINCIAL = {
   sistema: 'frances'
 };
 
+// === CONFIGURACIÓN OFICIAL DE PRECIOS (LISTA KIBUN) ===
+// Fuente única de verdad para PVP, impuestos (IVA 16%, IGTF 3%) y Trámites/Gastos por modelo.
+// NO se consulta Airtable para estos valores. Se define localmente para evitar
+// problemas de CORS/403 y para mantener estable la proforma aunque Airtable cambie.
+const configuracionPrecios = {
+  'Grand i10 GL M/T':        { pvp: 16107.00, iva: 2577.12, igtf:  483.21, gastos: 1472.71 },
+  'Grand i10 GL A/T':        { pvp: 17780.00, iva: 2844.80, igtf:  533.40, gastos: 1522.90 },
+  'Grand i10 GLS A/T':       { pvp: 19900.00, iva: 3184.00, igtf:  597.00, gastos: 1586.50 },
+  'Grand i10 Sedán A/T':     { pvp: 20715.00, iva: 3314.40, igtf:  621.45, gastos: 1610.95 },
+  'Accent 1.5L A/T':         { pvp: 25073.74, iva: 4011.80, igtf:  752.21, gastos: 2191.75 },
+  'Elantra 2.0L A/T':        { pvp: 32923.00, iva: 5267.68, igtf:  987.69, gastos: 2441.19 },
+  'Creta 1.5L A/T':          { pvp: 31030.17, iva: 4964.83, igtf:  930.91, gastos: 2384.45 },
+  'Tucson 2.0L A/T 2WD GLS': { pvp: 39900.00, iva: 6384.00, igtf: 1197.00, gastos: 2649.00 },
+  'Tucson 2.0L A/T 4WD GLX': { pvp: 47600.00, iva: 7616.00, igtf: 1428.00, gastos: 2881.50 },
+  'Palisade 3.8L A/T AWD':   { pvp:100500.00, iva:16080.00, igtf: 3015.00, gastos: 4468.50 }
+};
+
+// Categorías del catálogo (orden importa: aparecen en la barra de filtros)
+const CATEGORIAS = ['Todos', 'Hatchback', 'Sedán', 'SUV'];
+
+// Mapeo categoría -> modelos (los nombres deben coincidir EXACTO con `configuracionPrecios`)
+const mapeoCategorias = {
+  'Hatchback': ['Grand i10 GL M/T', 'Grand i10 GL A/T', 'Grand i10 GLS A/T'],
+  'Sedán':     ['Grand i10 Sedán A/T', 'Accent 1.5L A/T', 'Elantra 2.0L A/T'],
+  'SUV':       ['Creta 1.5L A/T', 'Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX', 'Palisade 3.8L A/T AWD']
+};
+
 const CTZ_PLANES = [
   { id: 1, meses: 12, tasa: 0.12, comision: 0.040, nombre: 'CTZ Plan 12 meses' },
   { id: 2, meses: 18, tasa: 0.16, comision: 0.045, nombre: 'CTZ Plan 18 meses' },
@@ -632,11 +671,22 @@ const V13 = {
 };
 
 /* =============================================================
-   3) CATÁLOGO DE VEHÍCULOS
-   ============================================================= */
-const vehicles = [
+   3) CATÁLOGO DE VEHÍCULOS (RESPALDO LOCAL)
+   =============================================================
+   Este es el array de respaldo (backupData). Se usa como fuente principal
+   del catálogo. Si Airtable responde, fetchVehiculos() sobreescribe `vehicles`
+   manteniendo la ficha técnica detallada. Si Airtable FALLA, el simulador
+   sigue funcionando 100% con este respaldo.
+   - `pvp`    = Precio base del vehículo (sin impuestos)
+   - `gastos` = Trámites y Gastos (valor fijo del modelo)
+   - `price`  = alias de `pvp` para compatibilidad con el resto del código
+   - `category` = categoría a la que pertenece (Hatchback / Sedán / SUV)
+*/
+const backupData = [
   {
-    id: 'grand-i10-gl-mt', name: 'Grand i10 GL M/T', price: 20640.04,
+    id: 'grand-i10-gl-mt', name: 'Grand i10 GL M/T',
+    pvp: 16107.00, gastos: 1472.71, price: 16107.00,
+    category: 'Hatchback',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GL+MT',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
@@ -651,7 +701,9 @@ const vehicles = [
     }
   },
   {
-    id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T', price: 22681.10,
+    id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T',
+    pvp: 17780.00, gastos: 1522.90, price: 17780.00,
+    category: 'Hatchback',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GL+AT',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
@@ -666,7 +718,9 @@ const vehicles = [
     }
   },
   {
-    id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T', price: 25267.50,
+    id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T',
+    pvp: 19900.00, gastos: 1586.50, price: 19900.00,
+    category: 'Hatchback',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GLS+AT',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
@@ -681,7 +735,9 @@ const vehicles = [
     }
   },
   {
-    id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T', price: 23500.00,
+    id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T',
+    pvp: 20715.00, gastos: 1610.95, price: 20715.00,
+    category: 'Sedán',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+Sedan+AT',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP · 11.6 kg·m',
@@ -696,7 +752,9 @@ const vehicles = [
     }
   },
   {
-    id: 'accent-15-at', name: 'Accent 1.5L A/T', price: 32029.50,
+    id: 'accent-15-at', name: 'Accent 1.5L A/T',
+    pvp: 25073.74, gastos: 2191.75, price: 25073.74,
+    category: 'Sedán',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Accent+1.5L+AT',
     specs: {
       motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
@@ -711,7 +769,9 @@ const vehicles = [
     }
   },
   {
-    id: 'elantra-20-at', name: 'Elantra 2.0L A/T', price: 41619.56,
+    id: 'elantra-20-at', name: 'Elantra 2.0L A/T',
+    pvp: 32923.00, gastos: 2441.19, price: 32923.00,
+    category: 'Sedán',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Elantra+2.0L+AT',
     specs: {
       motor:        '2.0L MPi Atkinson · 4 cilindros · 150 HP @ 6,200 rpm · 19.6 kg·m @ 4,500 rpm',
@@ -726,7 +786,9 @@ const vehicles = [
     }
   },
   {
-    id: 'creta-15-at', name: 'Creta 1.5L A/T', price: 39310.35,
+    id: 'creta-15-at', name: 'Creta 1.5L A/T',
+    pvp: 31030.17, gastos: 2384.45, price: 31030.17,
+    category: 'SUV',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Creta+1.5L+AT',
     specs: {
       motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
@@ -742,8 +804,10 @@ const vehicles = [
     }
   },
   {
-    id: 'tucson-premium', name: 'Tucson 2.0L A/T Premium', price: 50130.00,
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+Premium',
+    id: 'tucson-2wd-gls', name: 'Tucson 2.0L A/T 2WD GLS',
+    pvp: 39900.00, gastos: 2649.00, price: 39900.00,
+    category: 'SUV',
+    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+2WD+GLS',
     specs: {
       motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
       transmision:  'Automática de 6 velocidades con modo manual',
@@ -758,8 +822,10 @@ const vehicles = [
     }
   },
   {
-    id: 'tucson-limited', name: 'Tucson 2.0L A/T Limited', price: 59525.50,
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+Limited',
+    id: 'tucson-4wd-glx', name: 'Tucson 2.0L A/T 4WD GLX',
+    pvp: 47600.00, gastos: 2881.50, price: 47600.00,
+    category: 'SUV',
+    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+4WD+GLX',
     specs: {
       motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
       transmision:  'Automática de 6 velocidades con modo manual',
@@ -774,7 +840,9 @@ const vehicles = [
     }
   },
   {
-    id: 'palisade-38-awd', name: 'Palisade 3.8L A/T AWD', price: 124063.50,
+    id: 'palisade-38-awd', name: 'Palisade 3.8L A/T AWD',
+    pvp: 100500.00, gastos: 4468.50, price: 100500.00,
+    category: 'SUV',
     imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Palisade+3.8L+AWD',
     specs: {
       motor:        '3.8L V6 MPi Dual VTVT · 6 cilindros · 291 HP @ 6,000 rpm · 36.2 kg·m @ 5,200 rpm',
@@ -791,13 +859,17 @@ const vehicles = [
   }
 ];
 
+// `vehicles` es el array activo (inicia como copia del respaldo)
+const vehicles = JSON.parse(JSON.stringify(backupData));
+
 /* =============================================================
    4) ESTADO GLOBAL
    ============================================================= */
 const state = {
   step: 1,
   selectedVehicle: null,
-  planType: 'provincial',           // provincial | ctz | pivca | v13
+  categoria: 'Todos',              // Todos | Hatchback | Sedán | SUV
+  planType: 'provincial',          // provincial | ctz | pivca | v13
   ctzPlanId: 3,                    // default Plan 24m
   pivcaTerm: 24,
   v13Term: 24,
@@ -830,6 +902,55 @@ function getInitialPct() {
   if (!state.selectedVehicle) return 0;
   return getInitialAmount() / state.selectedVehicle.price;
 }
+
+// === DESGLOSE FISCAL (LÓGICA LOCAL) ===
+// Dado un PVP, calcula IVA 16% e IGTF 3%. Los "gastos" son fijos por modelo
+// (provienen de configuracionPrecios), por lo que se reciben como parámetro.
+// Fórmula: Total a Pagar = PVP + IVA + IGTF + Trámites y Gastos
+function calcularDesglose(pvpBase, gastos = 0) {
+  const iva    = +(pvpBase * 0.16).toFixed(2);
+  const igtf   = +(pvpBase * 0.03).toFixed(2);
+  const gastosRed = +gastos.toFixed(2);
+  return {
+    iva,
+    igtf,
+    gastos: gastosRed,
+    totalFinal: +(pvpBase + iva + igtf + gastosRed).toFixed(2)
+  };
+}
+
+// Devuelve el desglose completo de un modelo (PVP + impuestos + gastos)
+function obtenerDesglose(nombreModelo) {
+  const cfg = configuracionPrecios[nombreModelo];
+  if (!cfg) return null;
+  return { pvp: cfg.pvp, ...calcularDesglose(cfg.pvp, cfg.gastos) };
+}
+
+// Devuelve la categoría a la que pertenece un modelo
+function obtenerCategoria(nombreModelo) {
+  for (const cat of Object.keys(mapeoCategorias)) {
+    if (mapeoCategorias[cat].includes(nombreModelo)) return cat;
+  }
+  return 'Otros';
+}
+
+// Devuelve las categorías que tienen al menos un modelo en `listaModelos`
+function categoriasConModelos(listaModelos) {
+  const nombres = new Set(listaModelos.map(v => v.name));
+  return CATEGORIAS.filter(c =>
+    c === 'Todos' || mapeoCategorias[c].some(m => nombres.has(m))
+  );
+}
+
+// Datos fiscales oficiales de la empresa (constantes para PDF y forma de pago)
+const EMPRESA = {
+  rif:      'J-507391922',
+  direccion:'Av. Urdaneta N° 49-29, Mérida, Edo. Mérida, Venezuela',
+  bancoUsd: 'FACEBANK',
+  bancoBs:  'Banco Nacional de Crédito',
+  telefono: '(0274) 712.34.56',
+  email:    'ventas@automotoreskibun.com'
+};
 
 function getMinInitialPct() {
   if (state.planType === 'provincial') return PROVINCIAL.inicialMin;
@@ -880,17 +1001,19 @@ function calcGermanSchedule(M, annualRate, n) {
 }
 
 // === MOTOR PROVINCIAL ===
-function calcProvincial(price, initialAmount) {
+function calcProvincial(price, initialAmount, gastos = 0) {
   const M_base = price - initialAmount;
   const comision = M_base * PROVINCIAL.comisionFlat;
   const notaria = PROVINCIAL.notaria;
-  const M = M_base + comision + notaria;
+  const tax = calcularDesglose(price, gastos);
+  const M = M_base + comision + notaria + tax.iva + tax.igtf + tax.gastos;
   const cuota = calcFrench(M, PROVINCIAL.TNA, PROVINCIAL.plazo);
   return {
     tipo: 'Provincial',
     detalle: `Banco Provincial · 48 meses · TNA ${(PROVINCIAL.TNA*100).toFixed(0)}%`,
     plan: 'Banco Provincial (UVC Indexado)',
     precio: price, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
+    iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: PROVINCIAL.plazo, tasa: PROVINCIAL.TNA,
     cuotaMensual: cuota,
     sistema: 'frances',
@@ -899,17 +1022,19 @@ function calcProvincial(price, initialAmount) {
 }
 
 // === MOTOR CTZ ===
-function calcCTZ(price, initialAmount, planId) {
+function calcCTZ(price, initialAmount, planId, gastos = 0) {
   const plan = CTZ_PLANES.find(p => p.id === planId);
   const M_base = price - initialAmount;
   const comision = M_base * plan.comision;
-  const M = M_base + comision;
+  const tax = calcularDesglose(price, gastos);
+  const M = M_base + comision + tax.iva + tax.igtf + tax.gastos;
   const sched = calcGermanSchedule(M, plan.tasa, plan.meses);
   return {
     tipo: 'CTZ',
     detalle: `CTZ Plan ${plan.meses} meses · Tasa ${(plan.tasa*100).toFixed(0)}% · Flat ${(plan.comision*100).toFixed(1)}%`,
     plan: plan.nombre,
     precio: price, inicial: initialAmount, comision, notaria: 0, logistica: 0, admin: 0,
+    iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: plan.meses, tasa: plan.tasa,
     cuotaMensual: sched[0].cuota,
     sistema: 'aleman',
@@ -918,16 +1043,18 @@ function calcCTZ(price, initialAmount, planId) {
 }
 
 // === MOTOR PIVCA ===
-function calcPivca(price, initialAmount, term) {
+function calcPivca(price, initialAmount, term, gastos = 0) {
   const M_base = price - initialAmount;
   const comision = M_base * PIVCA.comisionFlat;
-  const M = M_base + comision;
+  const tax = calcularDesglose(price, gastos);
+  const M = M_base + comision + tax.iva + tax.igtf + tax.gastos;
   const cuota = calcFrench(M, PIVCA.TNA, term);
   return {
     tipo: 'Pivca',
     detalle: `Pivca · ${term} meses · TNA ${(PIVCA.TNA*100).toFixed(0)}% · Flat 5%`,
     plan: `Pivca ${term} meses`,
     precio: price, inicial: initialAmount, comision, notaria: 0, logistica: 0, admin: 0,
+    iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: term, tasa: PIVCA.TNA,
     cuotaMensual: cuota,
     sistema: 'frances',
@@ -936,7 +1063,7 @@ function calcPivca(price, initialAmount, term) {
 }
 
 // === MOTOR V13 ===
-function calcV13(price, initialAmount, term) {
+function calcV13(price, initialAmount, term, gastos = 0) {
   const M_base = price - initialAmount;
   const comision = 0;            // V13 no usa flat explícito, los gastos se cargan por mes
   const notaria = 0;
@@ -944,7 +1071,8 @@ function calcV13(price, initialAmount, term) {
   const g = V13.gastosMensuales[term];
   const adminMensual = g.adm + g.cob + g.cum;
   const adminTotal = adminMensual * term;
-  const M = M_base + logistica + adminTotal;     // capital + logística + admin totales
+  const tax = calcularDesglose(price, gastos);
+  const M = M_base + logistica + adminTotal + tax.iva + tax.igtf + tax.gastos;     // capital + logística + admin + impuestos
   const tasa = V13.tasas[term];
   const cuotaFinanciera = calcFrench(M, tasa, term);
   const cuotaTotal = cuotaFinanciera + adminMensual;
@@ -953,6 +1081,7 @@ function calcV13(price, initialAmount, term) {
     detalle: `Amortización V13 · ${term} meses · Tasa ${(tasa*100).toFixed(0)}%`,
     plan: `Estructura V13 ${term} meses`,
     precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminTotal, adminMensual,
+    iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: term, tasa,
     cuotaMensual: cuotaTotal,
     sistema: 'frances',
@@ -985,11 +1114,13 @@ function buildFrenchSchedule(M, annualRate, n, extraMonthly = 0) {
 
 function getActiveCalc() {
   if (!state.selectedVehicle) return null;
+  const v = state.selectedVehicle;
   const ia = getInitialAmount();
-  if (state.planType === 'provincial') return calcProvincial(state.selectedVehicle.price, ia);
-  if (state.planType === 'ctz')        return calcCTZ(state.selectedVehicle.price, ia, state.ctzPlanId);
-  if (state.planType === 'pivca')      return calcPivca(state.selectedVehicle.price, ia, state.pivcaTerm);
-  if (state.planType === 'v13')        return calcV13(state.selectedVehicle.price, ia, state.v13Term);
+  const gastos = Number(v.gastos) || 0;
+  if (state.planType === 'provincial') return calcProvincial(v.price, ia, gastos);
+  if (state.planType === 'ctz')        return calcCTZ(v.price, ia, state.ctzPlanId, gastos);
+  if (state.planType === 'pivca')      return calcPivca(v.price, ia, state.pivcaTerm, gastos);
+  if (state.planType === 'v13')        return calcV13(v.price, ia, state.v13Term, gastos);
   return null;
 }
 
@@ -999,6 +1130,44 @@ function getActiveCalc() {
 
 function renderVehicleGrid() {
   const grid = document.getElementById('vehicleGrid');
+  const bar = document.getElementById('categoryBar');
+  const emptyMsg = document.getElementById('emptyCategoryMsg');
+
+  // === BARRA DE CATEGORÍAS ===
+  const catsDisponibles = categoriasConModelos(vehicles);
+  const catActual = catsDisponibles.includes(state.categoria) ? state.categoria : 'Todos';
+
+  bar.innerHTML = catsDisponibles.map(cat => {
+    const count = cat === 'Todos'
+      ? vehicles.length
+      : vehicles.filter(v => (mapeoCategorias[cat] || []).includes(v.name)).length;
+    const active = (cat === catActual);
+    return `<button data-cat="${cat}"
+      class="cat-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 transition ${active
+        ? 'bg-hyundai text-white border-hyundai shadow-md'
+        : 'bg-white text-slate-700 border-slate-200 hover:border-hyundai2 hover:text-hyundai'}">
+      ${cat} <span class="opacity-60 text-xs">(${count})</span>
+    </button>`;
+  }).join('');
+
+  bar.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.categoria = btn.dataset.cat;
+      renderVehicleGrid();
+    });
+  });
+
+  // === FILTRAR VEHÍCULOS POR CATEGORÍA ===
+  const filtered = catActual === 'Todos'
+    ? vehicles
+    : vehicles.filter(v => (mapeoCategorias[catActual] || []).includes(v.name));
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    emptyMsg.classList.remove('hidden');
+    return;
+  }
+  emptyMsg.classList.add('hidden');
   // Fallback SVG embebido (data URI) — siempre carga, sin dependencia de red
   const FALLBACK_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'>
@@ -1037,7 +1206,10 @@ function renderVehicleGrid() {
     return url;
   };
 
-  grid.innerHTML = vehicles.map(v => `
+  grid.innerHTML = filtered.map(v => {
+    // Calcular el desglose en el cliente (no requiere Airtable)
+    const tax = calcularDesglose(Number(v.pvp) || Number(v.price) || 0, Number(v.gastos) || 0);
+    return `
     <article class="card-hover bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" data-id="${v.id}">
       <div class="aspect-[16/10] bg-slate-100 overflow-hidden relative">
         <img src="${imgSrc(v.name, v.imageUrl)}"
@@ -1046,10 +1218,12 @@ function renderVehicleGrid() {
              class="w-full h-full object-cover"
              onload="console.info('OK [img] ' + '${v.name.replace(/'/g, '')}')"
              onerror="if(!this.dataset.fb){this.dataset.fb='1';console.warn('ERR [img] ' + '${v.name.replace(/'/g, '')}' + ' fallo. URL=' + this.src.substring(0,90));this.src='${fallback(v.name)}';}" />
+        <span class="absolute top-2 left-2 bg-hyundai/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase">${v.category || 'Otros'}</span>
       </div>
       <div class="p-4 flex-1 flex flex-col">
         <h3 class="font-bold text-hyundai text-lg">${v.name}</h3>
-        <p class="text-2xl font-extrabold text-hyundai2 mt-1">${fmt(v.price)}</p>
+        <p class="text-2xl font-extrabold text-hyundai2 mt-1">${fmt(tax.totalFinal)}</p>
+        <p class="text-[10px] text-slate-500 mt-0.5">PVP ${fmt(tax.totalFinal - tax.iva - tax.igtf - tax.gastos)} · IVA ${fmt(tax.iva)} · IGTF ${fmt(tax.igtf)} · Trám. ${fmt(tax.gastos)}</p>
         <details class="mt-3 group">
           <summary class="text-xs font-semibold text-hyundai2 hover:underline flex items-center gap-1">
             <span>📋 Ver ficha técnica completa</span>
@@ -1064,8 +1238,8 @@ function renderVehicleGrid() {
           Simular Financiamiento →
         </button>
       </div>
-    </article>
-  `).join('');
+    </article>`;
+  }).join('');
 
   grid.querySelectorAll('.btn-simulate').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1183,7 +1357,7 @@ function updateLiveSummary() {
 
   document.getElementById('summaryPlanName').textContent = getCurrentPlanName();
   document.getElementById('sumPrice').textContent    = fmt(calc.precio);
-  document.getElementById('sumInitial').textContent  = fmt(calc.inicial);
+  document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
   document.getElementById('sumInitPct').textContent  = (getInitialPct()*100).toFixed(1);
   document.getElementById('sumFlat').textContent     = fmt(calc.comision);
 
@@ -1199,6 +1373,8 @@ function updateLiveSummary() {
   document.getElementById('sumAdminRow').style.display = showAdmin ? 'flex' : 'none';
   document.getElementById('sumAdmin').textContent = fmt(calc.admin);
 
+  document.getElementById('sumIVA').textContent    = fmt(calc.iva);
+  document.getElementById('sumIGTF').textContent   = fmt(calc.igtf);
   document.getElementById('sumFinanced').textContent = fmt(calc.montoFinanciar);
   document.getElementById('sumRate').textContent     = (calc.tasa*100).toFixed(2) + '% TNA';
   document.getElementById('sumTerm').textContent     = calc.plazo + ' meses';
@@ -1297,127 +1473,175 @@ async function fetchAsesores() {
 /* =============================================================
    8.1) CARGA DINÁMICA DE VEHÍCULOS DESDE AIRTABLE
    =============================================================
-   Tabla "Vehiculos" — Campos utilizados:
-     - Name           (Single line text) → nombre del modelo
-     - Foto           (Attachment)       → URL de la imagen oficial
-     - Precio         (Number/Currency)  → precio en USD
-     - Motor          (Single line text) → especificación del motor
-     - Transmisión    (Single line text) → tipo de transmisión
-     - Destacado 1    (Single line text) → highlight #1
-     - Destacado 2    (Single line text) → highlight #2
-   Las fichas técnicas detalladas (seguridad, interior, etc.) se
-   conservan del catálogo estático haciendo match por nombre.
-   Si Airtable no responde, se usa el catálogo estático como respaldo.
+
+   Estrategia: intentar leer desde Airtable, pero con respaldo local.
+   Si Airtable falla (error de red, 403, timeout, sin credenciales, etc.)
+   el catálogo se carga desde `backupData` para garantizar que el
+   simulador SIGA FUNCIONANDO sin pantalla en blanco.
 */
 async function fetchVehiculos() {
-  try {
-    if (!AIRTABLE_BASE_ID || AIRTABLE_BASE_ID === 'TU_BASE_ID' || !AIRTABLE_API_KEY || AIRTABLE_API_KEY === 'TU_BEARER_TOKEN') {
-      throw new Error('Credenciales Airtable no configuradas');
+  // Helper: fetch con timeout (5 segundos) y manejo de error
+  const fetchConTimeout = async (url, opts, ms = 5000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { ...opts, signal: ctrl.signal, cache: 'no-store' });
+      return r;
+    } finally {
+      clearTimeout(t);
     }
-    const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Vehiculos?pageSize=100`, {
-      headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}`, 'cache': 'no-store' }
-    });
-    if (!res.ok) throw new Error('Airtable GET Vehiculos → ' + res.status);
-    const json = await res.json();
-    console.info('🚗 [fetchVehiculos] Registros recibidos:', json.records?.length || 0);
+  };
 
-    const normalize = (s) => (s || '').toString().toLowerCase().replace(/[\s\-\_\.]/g, '').trim();
-
-    const liveVehicles = [];
-    for (const r of (json.records || [])) {
-      const f = r.fields || {};
-      const name = (f.Name || '').toString().trim();
-      if (!name) continue;
-      const price = Number(f.Precio) || 0;
-      const motor = (f.Motor || '').toString();
-      const transmision = (f['Transmisi\u00f3n'] || '').toString();
-      const dest1 = (f['Destacado 1'] || '').toString();
-      const dest2 = (f['Destacado 2'] || '').toString();
-
-      // Extraer URL del attachment. Las URLs firmadas de Airtable son
-      // publicas (sin auth) y devuelven Access-Control-Allow-Origin: *,
-      // asi que el navegador las carga directamente en un <img> sin CORS.
-      let imageUrl = '';
-      if (Array.isArray(f.Foto) && f.Foto.length > 0) {
-        const att = f.Foto[0];
-        imageUrl = (att.thumbnails && att.thumbnails.large && att.thumbnails.large.url)
-                || (att.thumbnails && att.thumbnails.full  && att.thumbnails.full.url)
-                || att.url
-                || '';
-      }
-      // Prioridad 1: imagen embebida en base64 (carga garantizada, sin red)
-      if (typeof vehicleImages !== 'undefined' && vehicleImages) {
-        // Busqueda robusta: exacta, normalizada, o por coincidencia parcial
-        let key = name;
-        if (vehicleImages[key]) { imageUrl = vehicleImages[key]; }
-        else {
-          const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s\-_]/g, '');
-          const target = norm(name);
-          const found = Object.keys(vehicleImages).find(k => norm(k) === target);
-          if (found) { imageUrl = vehicleImages[found]; console.info('[img base64] ' + name + ' -> ' + found); }
-          else { console.warn('[img base64] NO ENCONTRADO: ' + name); }
-        }
-      }
-
-      // Match con catalogo estatico para conservar ficha tecnica detallada
-      const staticMatch = vehicles.find(v => normalize(v.name) === normalize(name));
-
-      liveVehicles.push({
-        id: staticMatch ? staticMatch.id : 'at-' + r.id,
-        name: name,
-        price: price,
-        imageUrl: imageUrl,
-        specs: staticMatch ? {
-          ...staticMatch.specs,
-          motor: motor || staticMatch.specs.motor,
-          transmision: transmision || staticMatch.specs.transmision,
-          destacado1: dest1,
-          destacado2: dest2
-        } : {
-          motor: motor,
-          transmision: transmision,
-          direccion: '-',
-          capacidad: '-',
-          consumo: '-',
-          seguridad: '-',
-          exterior: dest1 || '-',
-          interior: dest2 || '-',
-          garantia: '-'
-        },
-        airtableId: r.id,
-        imageStatus: imageUrl ? 'pending' : 'missing'  // para tracking
-      });
-    }
-
-    if (liveVehicles.length === 0) throw new Error('Airtable devolvio 0 vehiculos');
-
-    // Diagnostico: mostrar URLs de imagen en consola
-    console.info('=== URLs de imagenes en Airtable ===');
-    liveVehicles.forEach(v => {
-      const status = v.imageUrl ? 'OK (' + v.imageUrl.substring(0, 70) + '...)' : 'SIN IMAGEN';
-      console.info('  ' + v.name + ' -> ' + status);
-    });
-
-    // Pre-cargar cada imagen como Image() para forzar al navegador a
-    // fetchearla y tenerla lista antes de que el <img> la solicite.
-    // Esto reduce la "pantalla de fallback" al cargar la pagina.
-    console.info('Pre-cargando ' + liveVehicles.length + ' imagenes...');
-    await Promise.all(liveVehicles.map(v => new Promise(resolve => {
-      if (!v.imageUrl) { resolve(); return; }
-      const img = new Image();
-      img.onload  = () => { console.info('  [img preload OK] ' + v.name); resolve(); };
-      img.onerror = () => { console.warn('  [img preload ERR] ' + v.name + ' URL=' + v.imageUrl.substring(0,80)); resolve(); };
-      img.src = v.imageUrl;
-      // Timeout de seguridad
-      setTimeout(resolve, 5000);
-    })));
-
+  // 1) Validar credenciales
+  const hasCreds = AIRTABLE_BASE_ID && AIRTABLE_BASE_ID !== 'TU_BASE_ID'
+                && AIRTABLE_API_KEY && AIRTABLE_API_KEY !== 'TU_BEARER_TOKEN';
+  if (!hasCreds) {
+    console.warn('[fetchVehiculos] Credenciales Airtable no configuradas. Usando backupData (' + backupData.length + ' modelos).');
     vehicles.length = 0;
-    vehicles.push(...liveVehicles);
-    console.info('%cOK Catalogo cargado desde Airtable: ' + liveVehicles.length + ' vehiculos', 'color:#10b981;font-weight:bold;');
-  } catch (err) {
-    console.warn('No se pudieron cargar vehiculos desde Airtable. Catalogo estatico de respaldo. Detalle: ' + err.message);
+    vehicles.push(...JSON.parse(JSON.stringify(backupData)));
+    return;
   }
+
+  // 2) Intentar fetch con timeout
+  let res;
+  try {
+    res = await fetchConTimeout(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Vehiculos?pageSize=100`,
+      { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } },
+      5000
+    );
+  } catch (err) {
+    console.warn('[fetchVehiculos] Fetch Airtable falló (' + err.message + '). Usando backupData (' + backupData.length + ' modelos).');
+    vehicles.length = 0;
+    vehicles.push(...JSON.parse(JSON.stringify(backupData)));
+    return;
+  }
+
+  if (!res.ok) {
+    console.warn('[fetchVehiculos] Airtable respondió ' + res.status + '. Usando backupData (' + backupData.length + ' modelos).');
+    vehicles.length = 0;
+    vehicles.push(...JSON.parse(JSON.stringify(backupData)));
+    return;
+  }
+
+  // 3) Procesar respuesta
+  let json;
+  try { json = await res.json(); }
+  catch (e) {
+    console.warn('[fetchVehiculos] Respuesta Airtable inválida. Usando backupData.');
+    vehicles.length = 0;
+    vehicles.push(...JSON.parse(JSON.stringify(backupData)));
+    return;
+  }
+  console.info('🚗 [fetchVehiculos] Registros recibidos:', json.records?.length || 0);
+
+  const normalize = (s) => (s || '').toString().toLowerCase().replace(/[\s\-\_\.]/g, '').trim();
+  const liveVehicles = [];
+  for (const r of (json.records || [])) {
+    const f = r.fields || {};
+    const name = (f.Name || '').toString().trim();
+    if (!name) continue;
+
+    // Match con catalogo estatico para conservar ficha tecnica detallada
+    const staticMatch = backupData.find(v => normalize(v.name) === normalize(name));
+
+    // PVP/Precio: PRIORIDAD → configuracionPrecios (oficial) → staticMatch → Airtable
+    const cfgOficial = configuracionPrecios[name];
+    const pvp = cfgOficial ? cfgOficial.pvp
+              : staticMatch ? Number(staticMatch.pvp) || Number(staticMatch.price) || 0
+              : Number(f.Precio) || 0;
+    const gastos = cfgOficial ? cfgOficial.gastos
+                 : staticMatch ? Number(staticMatch.gastos) || 0
+                 : 0;
+    const category = cfgOficial ? obtenerCategoria(name)
+                    : staticMatch ? (staticMatch.category || obtenerCategoria(name))
+                    : obtenerCategoria(name);
+
+    const motor = (f.Motor || '').toString();
+    const transmision = (f['Transmisi\u00f3n'] || '').toString();
+    const dest1 = (f['Destacado 1'] || '').toString();
+    const dest2 = (f['Destacado 2'] || '').toString();
+
+    // Imagen: base64 embebido > URL de Airtable > fallback
+    let imageUrl = '';
+    if (Array.isArray(f.Foto) && f.Foto.length > 0) {
+      const att = f.Foto[0];
+      imageUrl = (att.thumbnails && att.thumbnails.large && att.thumbnails.large.url)
+              || (att.thumbnails && att.thumbnails.full  && att.thumbnails.full.url)
+              || att.url
+              || '';
+    }
+    if (typeof vehicleImages !== 'undefined' && vehicleImages) {
+      let key = name;
+      if (vehicleImages[key]) { imageUrl = vehicleImages[key]; }
+      else {
+        const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s\-_]/g, '');
+        const target = norm(name);
+        const found = Object.keys(vehicleImages).find(k => norm(k) === target);
+        if (found) { imageUrl = vehicleImages[found]; console.info('[img base64] ' + name + ' -> ' + found); }
+        else { console.warn('[img base64] NO ENCONTRADO: ' + name); }
+      }
+    }
+
+    liveVehicles.push({
+      id: staticMatch ? staticMatch.id : 'at-' + r.id,
+      name: name,
+      pvp: pvp,
+      gastos: gastos,
+      price: pvp,  // alias para compatibilidad
+      category: category,
+      imageUrl: imageUrl,
+      specs: staticMatch ? {
+        ...staticMatch.specs,
+        motor: motor || staticMatch.specs.motor,
+        transmision: transmision || staticMatch.specs.transmision,
+        destacado1: dest1,
+        destacado2: dest2
+      } : {
+        motor: motor,
+        transmision: transmision,
+        direccion: '-',
+        capacidad: '-',
+        consumo: '-',
+        seguridad: '-',
+        exterior: dest1 || '-',
+        interior: dest2 || '-',
+        garantia: '-'
+      },
+      airtableId: r.id,
+      imageStatus: imageUrl ? 'pending' : 'missing'
+    });
+  }
+
+  if (liveVehicles.length === 0) {
+    console.warn('[fetchVehiculos] Airtable devolvió 0 vehículos. Usando backupData.');
+    vehicles.length = 0;
+    vehicles.push(...JSON.parse(JSON.stringify(backupData)));
+    return;
+  }
+
+  // Diagnostico: mostrar URLs de imagen en consola
+  console.info('=== URLs de imagenes en Airtable ===');
+  liveVehicles.forEach(v => {
+    const status = v.imageUrl ? 'OK (' + v.imageUrl.substring(0, 70) + '...)' : 'SIN IMAGEN';
+    console.info('  ' + v.name + ' -> ' + status);
+  });
+
+  // Pre-cargar cada imagen como Image() para forzar al navegador a
+  // fetchearla y tenerla lista antes de que el <img> la solicite.
+  console.info('Pre-cargando ' + liveVehicles.length + ' imagenes...');
+  await Promise.all(liveVehicles.map(v => new Promise(resolve => {
+    if (!v.imageUrl) { resolve(); return; }
+    const img = new Image();
+    img.onload  = () => { console.info('  [img preload OK] ' + v.name); resolve(); };
+    img.onerror = () => { console.warn('  [img preload ERR] ' + v.name + ' URL=' + v.imageUrl.substring(0,80)); resolve(); };
+    img.src = v.imageUrl;
+    setTimeout(resolve, 5000);
+  })));
+
+  vehicles.length = 0;
+  vehicles.push(...liveVehicles);
+  console.info('%cOK Catálogo cargado desde Airtable: ' + liveVehicles.length + ' vehículos', 'color:#10b981;font-weight:bold;');
 }
 
 async function saveLead(payload) {
@@ -1585,7 +1809,8 @@ function buildPDFHTML(calc, advisor) {
     +   '<div style="flex:1 1 auto; min-width:0; overflow:hidden;">'
     +     '<div style="color:#002C5F; font-size:13pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
     +     '<div style="color:#475569; font-size:7.5pt; line-height:1.2; margin-top:1px;">Concesionario Oficial Hyundai · Mérida</div>'
-    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2; margin-top:1px;">Av. Las Américas · RIF J-12345678-9 · (0274) 712.34.56</div>'
+    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2; margin-top:1px;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
+    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
     +   '</div>'
     + '</div>'
     + '<div style="text-align:right; flex:0 0 auto; min-width:0;">'
@@ -1623,13 +1848,15 @@ function buildPDFHTML(calc, advisor) {
 
   // Desglose financiero
   const breakdownHTML = '<div style="' + sectionTitle + '">Desglose Financiero · ' + calc.plan + '</div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Precio del vehículo</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.precio) + '</div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Subtotal (precio vehículo)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.precio) + '</div></div>'
     + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Inicial del cliente (' + (getInitialPct()*100).toFixed(2) + '%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; color:#16a34a; word-break:break-all;">- ' + fmt(calc.inicial) + '</div></div>'
     + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Comisión Flat</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.comision) + '</div></div>'
     + (calc.notaria ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Gastos de Notaría</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.notaria) + '</div></div>' : '')
     + (calc.logistica ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Logística y Transporte</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.logistica) + '</div></div>' : '')
     + (calc.admin ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Gastos administrativos</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.admin) + '</div></div>' : '')
-    + '<div style="' + rowStyle + 'background:#e0f2fe;font-weight:700;"><div style="' + cellLabel('55%') + 'background:#bae6fd;">Monto a financiar</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:10pt; text-align:right; word-break:break-all;"><b style="color:#002C5F;">' + fmt(calc.montoFinanciar) + '</b></div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.iva) + '</div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.igtf) + '</div></div>'
+    + '<div style="' + rowStyle + 'background:#e0f2fe;font-weight:700;"><div style="' + cellLabel('55%') + 'background:#bae6fd;">Monto a financiar (incluye impuestos)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:10pt; text-align:right; word-break:break-all;"><b style="color:#002C5F;">' + fmt(calc.montoFinanciar) + '</b></div></div>'
     + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Tasa Nominal Anual</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + (calc.tasa*100).toFixed(2) + '%</div></div>'
     + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Plazo</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + calc.plazo + ' meses</div></div>'
     + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Sistema de amortización</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + (calc.sistema === 'frances' ? 'Francés (cuota fija)' : 'Alemán (cuota decreciente)') + '</div></div>';
@@ -1697,6 +1924,21 @@ function buildPDFHTML(calc, advisor) {
     + '7. Automotores Kibun Mérida se reserva el derecho de actualizar precios y condiciones sin previo aviso.'
     + '</div>';
 
+  // === FORMA DE PAGO — Desglose fiscal + datos bancarios ===
+  const totalBs = (calc.totalFiscal * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const fiscalHTML = '<div style="' + sectionTitle + '">Forma de Pago · Desglose Fiscal</div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Subtotal (PVP / base imponible)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.subtotalFiscal) + '</div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.iva) + '</div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.igtf) + '</div></div>'
+    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Trámites y Gastos</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.gastos) + '</div></div>'
+    + '<div style="' + rowStyle + 'background:#002C5F;color:#fff;font-weight:700;"><div style="' + cellLabel('55%') + 'background:#001a3a;color:#fff;">TOTAL A PAGAR (USD)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:11pt; text-align:right; word-break:break-all;"><b>' + fmt(calc.totalFiscal) + '</b></div></div>'
+    + '<div style="' + rowStyle + 'background:#e0f2fe;"><div style="' + cellLabel('55%') + 'background:#bae6fd;">Total a Pagar en Bolívares (Tasa BCV Bs. ' + TASA_BCV.toFixed(2) + ')</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:10pt; text-align:right; word-break:break-all;"><b style="color:#002C5F;">Bs. ' + totalBs + '</b></div></div>'
+    + '<div style="margin-top:6px; padding:6px 8px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:8.5pt; color:#0f172a;">'
+    +   '<b style="color:#002C5F;">💳 Cuentas para pago:</b><br>'
+    +   '• <b>USD:</b> Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + '<br>'
+    +   '• <b>Bs.:</b> Transferencia a ' + EMPRESA.bancoBs + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
+    + '</div>';
+
   // Firmas lado a lado
   const firmasHTML = '<div style="display:flex; gap:10px; margin-top:12px;">'
     + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:4px; text-align:center; font-size:9pt; box-sizing:border-box;">'
@@ -1716,6 +1958,7 @@ function buildPDFHTML(calc, advisor) {
     + breakdownHTML
     + cuotaHTML
     + amortHTML
+    + fiscalHTML
     + terminosHTML
     + firmasHTML
   + '</div>';
@@ -2158,9 +2401,10 @@ async function init() {
     setProgress(70, 'Cargando equipo de asesores comerciales…');
     await fetchAsesores();
 
-    // Paso 4: Auto-crear campos faltantes en Leads (Meta API)
+    // Paso 4: Verificar esquema de Leads (Meta API) — NO debe romper el simulador
     setProgress(90, 'Verificando esquema de captura de leads…');
-    await ensureLeadsSchema();
+    try { await ensureLeadsSchema(); }
+    catch (e) { console.warn('[init] ensureLeadsSchema falló (no crítico). Simulando sigue operativo.'); }
 
     setProgress(100, 'Listo');
     await new Promise(r => setTimeout(r, 300)); // pausa breve para que se vea el 100%

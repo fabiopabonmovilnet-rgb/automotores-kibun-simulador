@@ -1230,11 +1230,13 @@ function renderVehicleGrid() {
 
   // Helper: genera el src correcto segun el tipo de URL.
   // PRIORIDAD:
-  //   1) vehicleImages[nombre]  -> base64 embebido (carga garantizada)
-  //   2) data: / blob:          -> ya viene lista
-  //   3) URL normal de Airtable -> ultimo fallback (puede fallar por CORS)
-  //   4) SVG fallback            -> si nada funciona
+  //   1) URL de Airtable (v.imageUrl) -> refleja cambios en tiempo real
+  //   2) vehicleImages[nombre]        -> base64 embebido (fallback offline)
+  //   3) data: / blob:                -> ya viene lista
+  //   4) SVG fallback                 -> si nada funciona
   const imgSrc = (vehicleName, url) => {
+    if (url && (url.startsWith('data:') || url.startsWith('blob:'))) return url;
+    if (url) return url;
     if (vehicleName && typeof vehicleImages !== 'undefined' && vehicleImages[vehicleName]) {
       return vehicleImages[vehicleName];
     }
@@ -1244,9 +1246,7 @@ function renderVehicleGrid() {
       const found = Object.keys(vehicleImages).find(k => norm(k) === target);
       if (found) return vehicleImages[found];
     }
-    if (!url) return fallback(vehicleName || '');
-    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-    return url;
+    return fallback(vehicleName || '');
   };
 
   grid.innerHTML = filtered.map(v => {
@@ -1300,8 +1300,10 @@ function renderVehicleGrid() {
 function renderSelectedVehicle() {
   const v = state.selectedVehicle;
   const card = document.getElementById('selectedVehicleCard');
-  // Prioriza vehicleImages (base64 embebido) sobre la URL de Airtable
+  // PRIORIDAD: URL de Airtable (cambios en tiempo real) > base64 embebido
   const imgSrc = (vehicleName, url) => {
+    if (url && (url.startsWith('data:') || url.startsWith('blob:'))) return url;
+    if (url) return url;
     if (vehicleName && typeof vehicleImages !== 'undefined' && vehicleImages[vehicleName]) {
       return vehicleImages[vehicleName];
     }
@@ -1311,9 +1313,7 @@ function renderSelectedVehicle() {
       const found = Object.keys(vehicleImages).find(k => norm(k) === target);
       if (found) return vehicleImages[found];
     }
-    if (!url) return '';
-    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-    return url;
+    return '';
   };
   card.innerHTML = `
     <img src="${imgSrc(v.name, v.imageUrl)}" alt="${v.name}" class="w-full sm:w-44 h-28 object-cover rounded-xl" onerror="this.onerror=null;this.src=imgSrc(v.name,'')" />
@@ -1610,7 +1610,9 @@ async function fetchVehiculos() {
     const dest1 = (f['Destacado 1'] || '').toString();
     const dest2 = (f['Destacado 2'] || '').toString();
 
-    // Imagen: base64 embebido > URL de Airtable > fallback
+    // Imagen: PRIORIDAD -> URL de Airtable > base64 embebido (fallback offline) > SVG
+    // Airtable gana para que los cambios de imagen en la base se reflejen
+    // automaticamente. El base64 solo se usa si Airtable no devuelve Foto.
     let imageUrl = '';
     if (Array.isArray(f.Foto) && f.Foto.length > 0) {
       const att = f.Foto[0];
@@ -1619,16 +1621,19 @@ async function fetchVehiculos() {
               || att.url
               || '';
     }
-    if (typeof vehicleImages !== 'undefined' && vehicleImages) {
+    if (!imageUrl && typeof vehicleImages !== 'undefined' && vehicleImages) {
       let key = name;
-      if (vehicleImages[key]) { imageUrl = vehicleImages[key]; }
+      if (vehicleImages[key]) { imageUrl = vehicleImages[key]; console.info('[img base64-fallback] ' + name + ' -> ' + key); }
       else {
         const norm = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s\-_]/g, '');
         const target = norm(name);
         const found = Object.keys(vehicleImages).find(k => norm(k) === target);
-        if (found) { imageUrl = vehicleImages[found]; console.info('[img base64] ' + name + ' -> ' + found); }
-        else { console.warn('[img base64] NO ENCONTRADO: ' + name); }
+        if (found) { imageUrl = vehicleImages[found]; console.info('[img base64-fallback] ' + name + ' -> ' + found); }
+        else { console.warn('[img base64-fallback] NO ENCONTRADO: ' + name); }
       }
+    }
+    if (imageUrl && !imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:')) {
+      console.info('[img airtable] ' + name + ' <- Airtable');
     }
 
     liveVehicles.push({

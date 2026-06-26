@@ -564,9 +564,6 @@
   </div>
 </div>
 
-<!-- IFRAME OCULTO — Renderizado aislado para exportación PDF -->
-<iframe id="pdf-frame" style="position:fixed; left:-9999px; top:0; width:816px; height:1100px; border:none; visibility:hidden;"></iframe>
-
 <!-- =========================================================
      SCRIPT PRINCIPAL
      ========================================================= -->
@@ -2073,138 +2070,41 @@ async function downloadPdfFromPreview() {
   btn.textContent = 'Generando PDF...';
   btn.disabled = true;
 
-  const iframe = document.getElementById('pdf-frame');
-  if (!iframe) { btn.textContent = originalText; btn.disabled = false; return; }
+  const element = document.getElementById('pdf-content');
+  if (!element) { btn.textContent = originalText; btn.disabled = false; return; }
 
-  // 1. Estilos embebidos para el iframe (aislados del mundo exterior)
-  const printStyles = `
-    @page { size: letter portrait; margin: 0.5in; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 0;
-      font-family: Arial, sans-serif;
-      font-size: 10pt;
-      color: #0f172a;
-      background: #fff;
-    }
-    .container {
-      width: 100%;
-      max-width: 7.5in;
-      margin: 0 auto;
-      padding: 0;
-    }
-    table {
-      width: 100% !important;
-      border-collapse: collapse !important;
-      table-layout: fixed !important;
-    }
-    th, td {
-      padding: 4px 6px;
-      font-size: 10px;
-      border: 1px solid #cbd5e1;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    th {
-      background: #002C5F;
-      color: #fff;
-      font-weight: 600;
-      text-align: left;
-    }
-    .pdf-bar {
-      background: #002C5F;
-      color: #fff;
-      padding: 5px 10px;
-      font-size: 10px;
-      font-weight: 700;
-    }
-    .pdf-row {
-      display: flex;
-      flex-wrap: wrap;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .pdf-cell-label {
-      flex: 0 0 35%;
-      min-width: 0;
-      padding: 4px 6px;
-      font-size: 10px;
-      background: #f1f5f9;
-      font-weight: 600;
-      word-break: break-word;
-    }
-    .pdf-cell-value {
-      flex: 1 1 65%;
-      min-width: 0;
-      padding: 4px 6px;
-      font-size: 10px;
-      word-break: break-word;
-    }
-    .pdf-section {
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
-    .pdf-amort-table {
-      width: 100% !important;
-      border-collapse: collapse;
-    }
-    .pdf-amort-table th {
-      background: #00AAD2;
-      color: #fff;
-      padding: 3px 4px;
-      font-size: 9px;
-      font-weight: 700;
-      text-align: right;
-      border: 1px solid #bae6fd;
-    }
-    .pdf-amort-table th:first-child { text-align: center; }
-    .pdf-amort-table td {
-      padding: 2px 4px;
-      font-size: 9px;
-      text-align: right;
-      border: 1px solid #e2e8f0;
-    }
-    .pdf-amort-table td:first-child { text-align: center; }
-    .pdf-amort-table tr:nth-child(even) { background: #f8fafc; }
-    .evitar-corte {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-    }
-    img { max-width: 100%; max-height: 140px; object-fit: contain; }
-  `;
+  const opt = {
+    margin:       [0.4, 0.4, 0.4, 0.4],
+    filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  {
+      scale: 2,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 816
+    },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+    pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
+  };
 
-  // 2. Construir documento HTML completo para el iframe
-  const htmlDoc = '<!DOCTYPE html><html><head><meta charset="utf-8">'
-    + '<style>' + printStyles + '</style></head><body>'
-    + '<div class="container">' + pendingPdfHtml + '</div>'
-    + '</body></html>';
-
-  // 3. Escribir en el iframe y esperar que renderice
-  iframe.srcdoc = htmlDoc;
-  await new Promise(resolve => {
-    iframe.onload = resolve;
-    setTimeout(resolve, 1000);
-  });
-
-  // 4. Micro-pausa para que el navegador pinte el DOM del iframe
-  await new Promise(resolve => setTimeout(resolve, 200));
-
-  // 5. Imprimir solo el iframe (el usuario elige "Guardar como PDF")
+  let pdfOk = false;
   try {
-    iframe.contentWindow.print();
-  } catch(e) {
-    console.error('[PDF] Error al imprimir iframe:', e);
+    window.scrollTo(0, 0);
+    await html2pdf().set(opt).from(element).save();
+    pdfOk = true;
+  } catch(err) {
+    console.error('[PDF] Error:', err);
     alert('Error al generar el PDF. Intente de nuevo.');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+    closePdfPreview();
+
+    const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
+    showSuccessModal(state.proformaCode, status.leadOk, pdfOk, status.leadErr);
+    window.__lastLeadStatus = null;
   }
-
-  // 6. Limpiar
-  pendingPdfHtml = '';
-  btn.textContent = originalText;
-  btn.disabled = false;
-  closePdfPreview();
-
-  const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
-  showSuccessModal(state.proformaCode, status.leadOk, true, status.leadErr);
-  window.__lastLeadStatus = null;
 }
 
 /* =============================================================

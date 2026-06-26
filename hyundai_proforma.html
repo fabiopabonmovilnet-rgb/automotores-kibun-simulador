@@ -40,112 +40,197 @@
   .step-pending{ background:#e5e7eb; color:#6b7280; }
   .seg-btn.active { background:#002C5F; color:#fff; }
   .plan-tab.active { border-color:#00AAD2; color:#002C5F; background:#f0fbff; }
-  /* PDF template - TOTALMENTE FUERA del flujo normal.
-     left:-9999px lo saca del viewport por completo (no cubre la pantalla).
-     Solo se mueve a left:0 dentro de generatePDF() y se restaura en el finally. */
-  /* === PDF TEMPLATE - A4 centrado, aislado del grid === */
-  /* Estilos del PDF - aislados del catálogo */
-  #pdfTemplate {
+  /* === PDF PREVIEW MODAL === */
+  #pdfPreviewModal {
     display: none;
-    position: absolute;
-    left: -9999px;
-    top: 0;
-    width: 210mm;
-    min-height: 297mm;
-    margin: 0 auto;
-    padding: 10mm;
-    box-sizing: border-box;
-    background-color: white;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(15,23,42,0.85);
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  #pdfPreviewModal.active { display: flex; align-items: flex-start; justify-content: center; }
+  #pdfPreviewModal .preview-wrapper {
+    background: white;
+    border-radius: 12px;
+    max-width: 850px;
+    width: 100%;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
     overflow: hidden;
+  }
+  #pdfPreviewModal .preview-header {
+    background: #002C5F;
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #pdfPreviewModal .preview-body {
+    padding: 20px;
+    max-height: 75vh;
+    overflow-y: auto;
+    background: #f1f5f9;
+    display: flex;
+    justify-content: center;
+  }
+  #pdfPreviewModal .preview-actions {
+    padding: 14px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* === PDF CONTENT — Preview en pantalla === */
+  #pdf-content {
+    width: 800px;
+    max-width: 800px;
+    min-width: 800px;
+    display: block;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
     color: #0f172a;
-    z-index: 1;
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+
+  /* === PDF EXPORT MODE — Aislamiento de impresión === */
+  .pdf-export-mode {
+    width: 800px !important;
+    max-width: 800px !important;
+    min-width: 800px !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    float: none !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+  }
+  .pdf-export-mode * {
+    flex-wrap: nowrap !important;
+    box-sizing: border-box !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .pdf-export-mode .pdf-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+  }
+  .pdf-export-mode .pdf-cell-label {
+    flex: 0 0 35% !important;
+    min-width: 35% !important;
+  }
+  .pdf-export-mode .pdf-cell-value {
+    flex: 1 1 65% !important;
+    min-width: 0 !important;
+  }
+  .pdf-export-mode table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    word-wrap: break-word !important;
+    border-collapse: collapse !important;
+  }
+  .pdf-export-mode th, .pdf-export-mode td {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
+  .pdf-export-mode .pdf-bar {
+    width: 100% !important;
+  }
+  .pdf-export-mode .html2pdf__page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  /* === PDF CONTENT INNER STYLES === */
+  #pdf-content table {
+    width: 100% !important;
+    border-collapse: collapse;
+  }
+  #pdf-content th, #pdf-content td {
+    padding: 4px 6px;
+    font-size: 10px;
+    border: 1px solid #cbd5e1;
     word-break: break-word;
     overflow-wrap: break-word;
   }
-  /* Cuando se active para captura: visible y posicionado */
-  #pdfTemplate.pdf-active {
-    display: block;
-    position: relative;
-    left: 0;
-    top: 0;
-    margin: 0 auto;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    z-index: 99999;
+  #pdf-content th {
+    background: #002C5F;
+    color: #fff;
+    font-weight: 600;
+    text-align: left;
   }
-  /* Cuando se active para captura: se vuelve visible y se posiciona como bloque */
-  #pdfTemplate.pdf-active {
-    display: block;
-    position: relative;
-    left: 0;
-    top: 0;
-    margin: 0 auto;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
+  #pdf-content .pdf-bar {
+    background: #002C5F;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 700;
   }
-  /* Cuando se active para captura, se hace flex centrado */
-  #pdfTemplate.pdf-active {
+  #pdf-content .pdf-row {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    left: 0;
-    top: 0;
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    padding-left: 60mm;   /* COMPENSACION: html2pdf ignora margin:auto, empujamos a la derecha */
+    flex-wrap: wrap;
+    border-bottom: 1px solid #e2e8f0;
   }
-  /* Control de paginacion: cada bloque NO se corta entre paginas */
-  #pdfTemplate .pdf-block,
-  #pdfTemplate .pdf-section,
-  #pdfTemplate .pdf-row {
-    page-break-after: avoid;
+  #pdf-content .pdf-cell-label {
+    flex: 0 0 35%;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 10px;
+    background: #f1f5f9;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  #pdf-content .pdf-cell-value {
+    flex: 1 1 65%;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 10px;
+    word-break: break-word;
+  }
+  #pdf-content .pdf-section {
     page-break-inside: avoid;
-    break-after: avoid;
     break-inside: avoid;
   }
-  /* Box-sizing global + max-width para que NADA exceda 210mm */
-  #pdfTemplate, #pdfTemplate * {
-    box-sizing: border-box;
-    max-width: 100%;
-  }
-  #pdfTemplate table {
-    table-layout: fixed !important;
+  #pdf-content .pdf-amort-table {
     width: 100% !important;
-    max-width: 100% !important;
+    border-collapse: collapse;
   }
-  #pdfTemplate td, #pdfTemplate th {
-    word-break: break-all;
-    overflow-wrap: anywhere;
+  #pdf-content .pdf-amort-table th {
+    background: #00AAD2;
+    color: #fff;
+    padding: 3px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: right;
+    border: 1px solid #bae6fd;
   }
-  /* Box-sizing global dentro del template */
-  #pdfTemplate, #pdfTemplate * {
-    box-sizing: border-box;
-    max-width: 100%;
+  #pdf-content .pdf-amort-table th:first-child { text-align: center; }
+  #pdf-content .pdf-amort-table td {
+    padding: 2px 4px;
+    font-size: 9px;
+    text-align: right;
+    border: 1px solid #e2e8f0;
   }
-  /* Tablas: layout fijo para no expandir columnas */
-  #pdfTemplate table {
-    table-layout: fixed !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  #pdfTemplate td, #pdfTemplate th {
-    word-break: break-all;
-    overflow-wrap: anywhere;
-    max-width: 0;
-  }
-  .pdf-page { width:194mm; min-height:280mm; padding:0; margin:0; color:#0f172a; }
-  .pdf-page table { border-collapse: collapse; width:100%; }
-  .pdf-page th, .pdf-page td { border:1px solid #cbd5e1; padding:6px 8px; font-size:10pt; }
-  .pdf-page th { background:#002C5F; color:#fff; font-weight:600; text-align:left; }
-  .pdf-page h1,h2,h3 { color:#002C5F; }
-  .pdf-page .pdf-bar { background:#002C5F; color:#fff; padding:8px 14px; }
+  #pdf-content .pdf-amort-table td:first-child { text-align: center; }
+  #pdf-content .pdf-amort-table tr:nth-child(even) { background: #f8fafc; }
   @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
   .fade-in { animation: fadeIn .35s ease forwards; }
   ::-webkit-scrollbar { width:8px; height:8px; }
@@ -506,9 +591,26 @@
 </div>
 
 <!-- =========================================================
-     PDF TEMPLATE (oculto, se clona al imprimir)
+     PDF PREVIEW MODAL (el usuario ve el PDF antes de descargar)
      ========================================================= -->
-<div id="pdfTemplate"></div>
+<div id="pdfPreviewModal">
+  <div class="preview-wrapper">
+    <div class="preview-header">
+      <div>
+        <h3 class="font-bold text-base">Vista Previa — Proforma PDF</h3>
+        <p class="text-xs opacity-80">Revisa el contenido antes de descargar</p>
+      </div>
+      <button onclick="closePdfPreview()" class="text-white/70 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="preview-body">
+      <div id="pdf-content"></div>
+    </div>
+    <div class="preview-actions">
+      <button onclick="closePdfPreview()" class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition">Cancelar</button>
+      <button id="btnDownloadPdf" onclick="downloadPdfFromPreview()" class="px-5 py-2.5 rounded-lg bg-hyundai text-white font-bold text-sm hover:bg-hyundai3 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>Descargar PDF Confirmado</button>
+    </div>
+  </div>
+</div>
 
 <!-- =========================================================
      SCRIPT PRINCIPAL
@@ -636,8 +738,8 @@ const CATEGORIAS = ['Todos', 'Hatchback', 'Sedán', 'SUV', 'SUV Premium'];
 const mapeoCategorias = {
   'Hatchback':   ['Grand i10 GL M/T', 'Grand i10 GL A/T', 'Grand i10 GLS A/T'],
   'Sedán':       ['Grand i10 Sedán A/T', 'Accent 1.5L A/T', 'Elantra 2.0L A/T'],
-  'SUV':         ['Creta 1.5L A/T', 'Palisade 3.8L A/T AWD'],
-  'SUV Premium': ['Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX']
+  'SUV':         [],
+  'SUV Premium': ['Creta 1.5L A/T', 'Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX', 'Palisade 3.8L A/T AWD']
 };
 
 // Alias de nombres viejos (Airtable) -> nombre canónico (configuracionPrecios)
@@ -713,163 +815,163 @@ const backupData = [
       garantia:     '3 años o 100,000 km'
     }
   },
-  {
-    id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T',
-    pvp: 17780.00, gastos: 1522.90, price: 17780.00,
-    category: 'Hatchback',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GL+AT',
-    specs: {
-      motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
-      transmision:  'Automática de 4 velocidades',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Tanque 37 L',
-      consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
-      seguridad:    'Doble airbag frontal · ABS + EBD · Control de estabilidad VSM · HAC · ISOFIX · Inmovilizador',
-      exterior:     'Llantas 165/70 R14 · Faros halógenos con luz de día · Espejos eléctricos con direccional integrada',
-      interior:     'A/C manual · Vidrios eléctricos del/tras · Cierre centralizado · Radio AM/FM/USB/Aux · 4 parlantes · Computador a bordo',
-      garantia:     '3 años o 100,000 km'
+{
+      id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T',
+      pvp: 17780.00, gastos: 1522.90, price: 17780.00,
+      category: 'Hatchback',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GL+AT',
+      specs: {
+        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
+        transmision:  'Automática de 4 velocidades',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Tanque 37 L',
+        consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
+        seguridad:    'Doble airbag frontal · ABS + EBD · Control de estabilidad VSM · HAC · ISOFIX · Inmovilizador',
+        exterior:     'Llantas 175/60 R15 · Faros halógenos con luz de día · Espejos eléctricos',
+        interior:     'A/C manual · Vidrios eléctricos del/tras · Cierre centralizado · Radio AM/FM/USB/Aux/Bluetooth · 4 parlantes · Computador a bordo',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T',
+      pvp: 19900.00, gastos: 1586.50, price: 19900.00,
+      category: 'Hatchback',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GLS+AT',
+      specs: {
+        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
+        transmision:  'Automática de 4 velocidades con modo manual secuencial',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Tanque 37 L',
+        consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
+        seguridad:    'Doble airbag frontal + laterales + de cortina · ABS + EBD · VSM · HAC · Cámara de reversa · Sensores traseros · ISOFIX',
+        exterior:     'Llantas 175/60 R15 aleación · Faros halógenos con luz de día LED · Espejos eléctricos abatibles · Manijas cromadas',
+        interior:     'A/C automático digital · Vidrios eléctricos (4) · Botón de encendido · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T',
+      pvp: 20715.00, gastos: 1610.95, price: 20715.00,
+      category: 'Sedán',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+Sedan+AT',
+      specs: {
+        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP · 11.6 kg·m',
+        transmision:  'Automática de 4 velocidades',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 420 L · Tanque 37 L',
+        consumo:      '16.0 km/L ciudad · 21.0 km/L carretera',
+        seguridad:    'Doble airbag frontal + de cortina · ABS + EBD · VSM · HAC · ISOFIX',
+        exterior:     'Llantas 165/70 R14 · Faros halógenos · Espejos eléctricos con direccional',
+        interior:     'A/C manual · Vidrios eléctricos delanteros · Cierre centralizado · Radio AM/FM/USB/Aux · 4 parlantes',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'accent-15-at', name: 'Accent 1.5L A/T',
+      pvp: 25073.74, gastos: 2191.75, price: 25073.74,
+      category: 'Sedán',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Accent+1.5L+AT',
+      specs: {
+        motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
+        transmision:  'Automática IVT (variación continua inteligente)',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 480 L · Tanque 45 L',
+        consumo:      '14.8 km/L ciudad · 19.5 km/L carretera',
+        seguridad:    '6 airbags (frontales, laterales y de cortina) · ABS + EBD · Control de estabilidad ESC · HAC · Cámara de reversa · Sensores traseros · ISOFIX',
+        exterior:     'Llantas 205/55 R16 aleación · Faros halógenos proyectores con luz de día LED · Espejos eléctricos con direccional',
+        interior:     'A/C automático con filtro · Vidrios eléctricos (4) · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes Bose · Volante forrado en cuero · Asiento conductor con ajuste de altura',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'elantra-20-at', name: 'Elantra 2.0L A/T',
+      pvp: 32923.00, gastos: 2441.19, price: 32923.00,
+      category: 'Sedán',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Elantra+2.0L+AT',
+      specs: {
+        motor:        '2.0L MPi Atkinson · 4 cilindros · 150 HP @ 6,200 rpm · 19.6 kg·m @ 4,500 rpm',
+        transmision:  'Automática IVT (Smartstream)',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 408 L · Tanque 47 L',
+        consumo:      '14.0 km/L ciudad · 18.8 km/L carretera',
+        seguridad:    '6 airbags · ABS + EBD · ESC · HAC · Cámara de reversa con guías · Sensores delanteros y traseros',
+        exterior:     'Llantas 225/45 R17 aleación · Faros Full LED con luz de día · Espejos eléctricos abatibles con direccional LED',
+        interior:     'A/C automático dual zone · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 8" inalámbrico Apple CarPlay/Android Auto · Cargador inalámbrico · 8 parlantes Bose · Volante calefaccionado forrado en cuero · Asientos en cuero/tela',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'creta-15-at', name: 'Creta 1.5L A/T',
+      pvp: 31030.17, gastos: 2384.45, price: 31030.17,
+      category: 'SUV Premium',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Creta+1.5L+AT',
+      specs: {
+        motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
+        transmision:  'Automática IVT',
+        traccion:     '2WD (delantera)',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 433 L · Tanque 40 L',
+        consumo:      '13.5 km/L ciudad · 17.9 km/L carretera',
+        seguridad:    '6 airbags · ABS · ESC · HAC · Cámara de reversa con guías · Sensores traseros · ISOFIX',
+        exterior:     'Llantas 205/65 R16 aleación · Faros halógenos/proyectores con luz de día LED · Barras de techo · Espejos eléctricos con direccional',
+        interior:     'A/C automático con filtro de aire · Vidrios eléctricos (4) · Smart Key · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'tucson-2wd-gls', name: 'Tucson 2.0L A/T 2WD GLS',
+      pvp: 39900.00, gastos: 2649.00, price: 39900.00,
+      category: 'SUV Premium',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+2WD+GLS',
+      specs: {
+        motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
+        transmision:  'Automática de 6 velocidades con modo manual',
+        traccion:     'FWD (delantera) · Modos: Eco, Normal, Sport',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 539 L · Tanque 54 L',
+        consumo:      '11.9 km/L ciudad · 16.2 km/L carretera',
+        seguridad:    '6 airbags · ABS + EBD · ESC · DBC · HAC · Cámara de reversa con guías · Sensores del/tras · ISOFIX',
+        exterior:     'Llantas 225/55 R18 aleación diamantada · Faros Full LED con luz de día LED integrada · Espejos eléctricos abatibles con direccional LED · Barras de techo',
+        interior:     'A/C automático dual zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key · Pantalla táctil 8" Apple CarPlay/Android Auto inalámbrico · Cargador inalámbrico · 6 parlantes Bose · Volante forrado en cuero · Asientos en cuero con ajuste eléctrico conductor',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'palisade-38-awd', name: 'Palisade 3.8L A/T AWD',
+      pvp: 100500.00, gastos: 4468.50, price: 100500.00,
+      category: 'SUV Premium',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Palisade+3.8L+AWD',
+      specs: {
+        motor:        '3.8L V6 MPi Dual VTVT · 6 cilindros · 291 HP @ 6,000 rpm · 36.2 kg·m @ 5,200 rpm',
+        transmision:  'Automática de 8 velocidades con modo manual',
+        traccion:     'AWD HTRAC · Multi-Terrain: Eco/Normal/Comfort/Smart/Sport/Snow',
+        direccion:    'Eléctrica asistida (MDPS) con modo variable',
+        capacidad:    '7-8 pasajeros (3 filas) · Baúl 510 L (7 asientos) / 2,447 L (2da y 3ra fila abatida) · Tanque 71 L',
+        consumo:      '9.4 km/L ciudad · 13.0 km/L carretera',
+        seguridad:    '6 airbags (incl. rodilla conductor) · ABS · ESC · DBC · HAC · TSA (Trailer Sway Assist) · Cámara 360° · Sensores del/tras · BSM · RCCA · FCA con detección de peatones · Asistente de mantenimiento de carril (LKA) · Control de crucero adaptativo (SCC) · Safe Exit Assist (SEA)',
+        exterior:     'Llantas 245/50 R20 aleación · Faros Full LED con luz de día LED integrada · Faros traseros LED · Espejos eléctricos abatibles con direccional LED y calefacción · Barras de techo cromadas · Sunroof panorámico doble · Portón trasero eléctrico inteligente manos libres · Estribos laterales',
+        interior:     'A/C automático tri-zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 12.3" navegación + Apple CarPlay/Android Auto inalámbrico · Head-Up Display · Cargador inalámbrico · 12 parlantes Infinity · Volante forrado en cuero calefaccionado · Asientos en cuero Nappa con ventilación, calefacción y ajuste eléctrico (conductor con memoria) · Asientos 2da fila captain chairs calefaccionados · 3ra fila eléctrica · Cortinas laterales 2da fila · Iluminación ambiental 64 colores',
+        garantia:     '3 años o 125,000 km'
+      }
+    },
+{
+      id: 'tucson-4wd-glx', name: 'Tucson 2.0L A/T 4WD GLX',
+      pvp: 47600.00, gastos: 2881.50, price: 47600.00,
+      category: 'SUV Premium',
+      imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+4WD+GLX',
+      specs: {
+        motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
+        transmision:  'Automática de 6 velocidades con modo manual',
+        traccion:     'AWD HTRAC (inteligente) · Multi-Terrain: Eco/Normal/Sport/Snow/Mud/Sand',
+        direccion:    'Eléctrica asistida (MDPS)',
+        capacidad:    '5 pasajeros · Baúl 539 L · Tanque 54 L',
+        consumo:      '11.2 km/L ciudad · 15.4 km/L carretera',
+        seguridad:    '6 airbags · ABS + EBD · ESC · DBC · HAC · Cámara 360° · Sensores del/tras · Monitor de punto ciego (BSM) · Alerta de tráfico cruzado (RCCA) · Asistente de colisión frontal (FCA)',
+        exterior:     'Llantas 235/50 R19 aleación · Faros Full LED con luz de día LED integrada · Espejos eléctricos abatibles con direccional LED · Barras de techo · Sunroof panorámico · Portón trasero eléctrico manos libres',
+        interior:     'A/C automático dual zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 10.25" navegación + Apple CarPlay/Android Auto inalámbrico · Cargador inalámbrico · 8 parlantes Bose · Volante forrado en cuero calefaccionado · Asientos en cuero Nappa con ventilación y ajuste eléctrico conductor/pasajero · Asientos traseros calefaccionados',
+        garantia:     '3 años o 125,000 km'
+      }
     }
-  },
-  {
-    id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T',
-    pvp: 19900.00, gastos: 1586.50, price: 19900.00,
-    category: 'Hatchback',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+GLS+AT',
-    specs: {
-      motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
-      transmision:  'Automática de 4 velocidades con modo manual secuencial',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Tanque 37 L',
-      consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
-      seguridad:    'Doble airbag frontal + laterales · ABS + EBD · VSM · HAC · Cámara de reversa · Sensores traseros · ISOFIX',
-      exterior:     'Llantas 175/60 R15 aleación · Faros halógenos con luz de día LED · Espejos eléctricos abatibles · Manijas cromadas',
-      interior:     'A/C automático digital · Vidrios eléctricos (4) · Botón de encendido · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T',
-    pvp: 20715.00, gastos: 1610.95, price: 20715.00,
-    category: 'Sedán',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Grand+i10+Sedan+AT',
-    specs: {
-      motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP · 11.6 kg·m',
-      transmision:  'Automática de 4 velocidades',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 420 L · Tanque 37 L',
-      consumo:      '16.0 km/L ciudad · 21.0 km/L carretera',
-      seguridad:    'Doble airbag frontal · ABS + EBD · VSM · HAC · ISOFIX',
-      exterior:     'Llantas 165/70 R14 · Faros halógenos · Espejos eléctricos con direccional',
-      interior:     'A/C manual · Vidrios eléctricos delanteros · Cierre centralizado · Radio AM/FM/USB/Aux · 4 parlantes',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'accent-15-at', name: 'Accent 1.5L A/T',
-    pvp: 25073.74, gastos: 2191.75, price: 25073.74,
-    category: 'Sedán',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Accent+1.5L+AT',
-    specs: {
-      motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
-      transmision:  'Automática IVT (variación continua inteligente)',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 480 L · Tanque 45 L',
-      consumo:      '14.8 km/L ciudad · 19.5 km/L carretera',
-      seguridad:    '6 airbags (frontales, laterales y de cortina) · ABS + EBD · Control de estabilidad ESC · HAC · Cámara de reversa · Sensores traseros · ISOFIX',
-      exterior:     'Llantas 185/65 R15 aleación · Faros halógenos proyectores con luz de día LED · Espejos eléctricos con direccional · Sunroof (opcional)',
-      interior:     'A/C automático con filtro · Vidrios eléctricos (4) · Botón de encendido · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero · Asiento conductor con ajuste de altura',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'elantra-20-at', name: 'Elantra 2.0L A/T',
-    pvp: 32923.00, gastos: 2441.19, price: 32923.00,
-    category: 'Sedán',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Elantra+2.0L+AT',
-    specs: {
-      motor:        '2.0L MPi Atkinson · 4 cilindros · 150 HP @ 6,200 rpm · 19.6 kg·m @ 4,500 rpm',
-      transmision:  'Automática IVT (Smartstream)',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 408 L · Tanque 47 L',
-      consumo:      '14.0 km/L ciudad · 18.8 km/L carretera',
-      seguridad:    '6 airbags · ABS + EBD · ESC · HAC · Cámara de reversa con guías · Sensores delanteros y traseros · Monitor de punto ciego (BSM) · Alerta de tráfico cruzado (RCCA)',
-      exterior:     'Llantas 205/55 R16 aleación · Faros Full LED con luz de día · Espejos eléctricos abatibles con direccional LED · Sunroof',
-      interior:     'A/C automático dual zone · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 8" inalámbrico Apple CarPlay/Android Auto · Cargador inalámbrico · 8 parlantes Bose · Volante calefaccionado forrado en cuero · Asientos en cuero/tela',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'creta-15-at', name: 'Creta 1.5L A/T',
-    pvp: 31030.17, gastos: 2384.45, price: 31030.17,
-    category: 'SUV',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Creta+1.5L+AT',
-    specs: {
-      motor:        '1.5L MPi Dual VTVT · 4 cilindros · 115 HP @ 6,300 rpm · 14.7 kg·m @ 4,200 rpm',
-      transmision:  'Automática IVT',
-      traccion:     'FWD (delantera)',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 433 L · Tanque 50 L',
-      consumo:      '13.5 km/L ciudad · 17.9 km/L carretera',
-      seguridad:    '6 airbags · ABS + EBD · ESC · HAC · Downhill Brake Control (DBC) · Cámara de reversa con guías · Sensores traseros · ISOFIX',
-      exterior:     'Llantas 205/65 R16 aleación · Faros halógenos/proyectores con luz de día LED · Barras de techo · Espejos eléctricos con direccional',
-      interior:     'A/C automático con filtro de aire · Vidrios eléctricos (4) · Smart Key · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'tucson-2wd-gls', name: 'Tucson 2.0L A/T 2WD GLS',
-    pvp: 39900.00, gastos: 2649.00, price: 39900.00,
-    category: 'SUV',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+2WD+GLS',
-    specs: {
-      motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
-      transmision:  'Automática de 6 velocidades con modo manual',
-      traccion:     'FWD (delantera) · Modos: Eco, Normal, Sport',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 539 L · Tanque 54 L',
-      consumo:      '11.9 km/L ciudad · 16.2 km/L carretera',
-      seguridad:    '6 airbags · ABS + EBD · ESC · DBC · HAC · Cámara de reversa con guías · Sensores del/tras · ISOFIX',
-      exterior:     'Llantas 225/55 R18 aleación diamantada · Faros Full LED con luz de día LED integrada · Espejos eléctricos abatibles con direccional LED · Barras de techo · Sunroof panorámico',
-      interior:     'A/C automático dual zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 8" Apple CarPlay/Android Auto inalámbrico · Cargador inalámbrico · 6 parlantes · Volante forrado en cuero · Asientos en cuero con ajuste eléctrico conductor',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'tucson-4wd-glx', name: 'Tucson 2.0L A/T 4WD GLX',
-    pvp: 47600.00, gastos: 2881.50, price: 47600.00,
-    category: 'SUV',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Tucson+4WD+GLX',
-    specs: {
-      motor:        '2.0L MPi Dual VTVT · 4 cilindros · 156 HP @ 6,200 rpm · 19.6 kg·m @ 4,000 rpm',
-      transmision:  'Automática de 6 velocidades con modo manual',
-      traccion:     'AWD HTRAC (inteligente) · Multi-Terrain: Eco/Normal/Sport/Snow/Mud/Sand',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Baúl 539 L · Tanque 54 L',
-      consumo:      '11.2 km/L ciudad · 15.4 km/L carretera',
-      seguridad:    '6 airbags · ABS + EBD · ESC · DBC · HAC · Cámara 360° · Sensores del/tras · Monitor de punto ciego (BSM) · Alerta de tráfico cruzado (RCCA) · Asistente de colisión frontal (FCA)',
-      exterior:     'Llantas 235/50 R19 aleación · Faros Full LED con luz de día LED integrada · Espejos eléctricos abatibles con direccional LED · Barras de techo · Sunroof panorámico · Portón trasero eléctrico manos libres',
-      interior:     'A/C automático dual zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 10.25" navegación + Apple CarPlay/Android Auto inalámbrico · Cargador inalámbrico · 8 parlantes Bose · Volante forrado en cuero calefaccionado · Asientos en cuero Nappa con ventilación y ajuste eléctrico conductor/pasajero · Asientos traseros calefaccionados',
-      garantia:     '3 años o 100,000 km'
-    }
-  },
-  {
-    id: 'palisade-38-awd', name: 'Palisade 3.8L A/T AWD',
-    pvp: 100500.00, gastos: 4468.50, price: 100500.00,
-    category: 'SUV',
-    imageUrl: 'https://placehold.co/600x420/002C5F/FFFFFF?text=Palisade+3.8L+AWD',
-    specs: {
-      motor:        '3.8L V6 MPi Dual VTVT · 6 cilindros · 291 HP @ 6,000 rpm · 36.2 kg·m @ 5,200 rpm',
-      transmision:  'Automática de 8 velocidades con modo manual',
-      traccion:     'AWD HTRAC · Multi-Terrain: Eco/Normal/Comfort/Smart/Sport/Snow',
-      direccion:    'Eléctrica asistida (MDPS) con modo variable',
-      capacidad:    '7-8 pasajeros (3 filas) · Baúl 510 L (7 asientos) / 2,447 L (2da y 3ra fila abatida) · Tanque 71 L',
-      consumo:      '9.4 km/L ciudad · 13.0 km/L carretera',
-      seguridad:    '7 airbags (incl. rodilla conductor) · ABS + EBD · ESC · DBC · HAC · TSA (Trailer Sway Assist) · Cámara 360° · Sensores del/tras · BSM · RCCA · FCA con detección de peatones · Asistente de mantenimiento de carril (LKA) · Control de crucero adaptativo (SCC) · Safe Exit Assist (SEA)',
-      exterior:     'Llantas 245/50 R20 aleación · Faros Full LED con luz de día LED integrada · Faros traseros LED · Espejos eléctricos abatibles con direccional LED y calefacción · Barras de techo cromadas · Sunroof panorámico doble · Portón trasero eléctrico inteligente manos libres · Estribos laterales',
-      interior:     'A/C automático tri-zone con salidas traseras · Vidrios eléctricos (4) one-touch · Smart Key + botón de encendido · Pantalla táctil 12.3" navegación + Apple CarPlay/Android Auto inalámbrico · Head-Up Display · Cargador inalámbrico · 12 parlantes Infinity · Volante forrado en cuero calefaccionado · Asientos en cuero Nappa con ventilación, calefacción y ajuste eléctrico (conductor con memoria) · Asientos 2da fila captain chairs calefaccionados · 3ra fila eléctrica · Cortinas laterales 2da fila · Iluminación ambiental 64 colores',
-      garantia:     '3 años o 100,000 km · 5 años o 100,000 km tren motriz'
-    }
-  }
 ];
 
 // `vehicles` es el array activo (inicia como copia del respaldo)
@@ -1839,135 +1941,133 @@ function buildPDFHTML(calc, advisor) {
   const sched = calc.schedule;
   const showRows = sched.length > 12 ? sched.slice(0, 12) : sched;
   const isCTZ = calc.sistema === 'aleman';
-  const moreRowsNote = sched.length > 12 ? '<p style="font-size:7pt; color:#64748b; font-style:italic; margin-top:3px;">* Mostrando 12 de ' + sched.length + ' cuotas. Cronograma completo disponible en el sistema.</p>' : '';
+  const moreRowsNote = sched.length > 12 ? '<p style="font-size:7pt; color:#64748b; font-style:italic; margin-top:2px;">* Mostrando 12 de ' + sched.length + ' cuotas. Cronograma completo disponible en el sistema.</p>' : '';
 
-  // Imagen del vehiculo (base64 desde vehicleImages)
   const vehImg = (typeof vehicleImages !== 'undefined' && vehicleImages[v.name]) ? vehicleImages[v.name] : '';
 
-  // Estilo comun para secciones
-  const sectionTitle = 'background:#002C5F; color:#fff; padding:6px 10px; font-size:10pt; font-weight:700; margin:6px 0 0 0;';
-  const rowStyle = 'display:flex; flex-wrap:wrap; border-bottom:1px solid #e2e8f0;';
-  const cellStyle = (w, bg) => 'flex:1 1 ' + w + '; min-width:0; padding:5px 8px; font-size:9pt; box-sizing:border-box; word-break:break-all; overflow-wrap:break-word;' + (bg ? ' background:' + bg + ';' : '');
-  const cellLabel = (w) => 'flex:0 0 ' + w + '; min-width:0; padding:5px 8px; font-size:9pt; box-sizing:border-box; word-break:break-all; background:#f1f5f9; font-weight:600;';
-  const headerStyle = 'display:flex; align-items:center; justify-content:space-between; padding-bottom:6px;';
-
-  // Header con logo + datos empresa
-  const headerHTML = '<div style="' + headerStyle + '">'
-    + '<div style="display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0;">'
-    +   '<div style="width:42px; height:42px; min-width:42px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:20pt; border-radius:8px;">K</div>'
-    +   '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" style="width:55px; height:26px; min-width:55px;">'
+  // --- Header ---
+  const headerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:4px;">'
+    + '<div style="display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0;">'
+    +   '<div style="width:36px; height:36px; min-width:36px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16pt; border-radius:6px;">K</div>'
+    +   '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" style="width:44px; height:20px; min-width:44px;">'
     +     '<ellipse cx="100" cy="40" rx="95" ry="34" fill="none" stroke="#002C5F" stroke-width="5"/>'
     +     '<text x="100" y="58" text-anchor="middle" font-family="Arial Black, Helvetica, sans-serif" font-size="50" font-weight="900" font-style="italic" fill="#002C5F">H</text>'
     +   '</svg>'
     +   '<div style="flex:1 1 auto; min-width:0; overflow:hidden;">'
-    +     '<div style="color:#002C5F; font-size:13pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
-    +     '<div style="color:#475569; font-size:7.5pt; line-height:1.2; margin-top:1px;">Concesionario Oficial Hyundai · Mérida</div>'
-    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2; margin-top:1px;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
+    +     '<div style="color:#002C5F; font-size:11pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
+    +     '<div style="color:#475569; font-size:7pt; line-height:1.2;">Concesionario Oficial Hyundai · Mérida</div>'
+    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
     +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
     +   '</div>'
     + '</div>'
     + '<div style="text-align:right; flex:0 0 auto; min-width:0;">'
-    +   '<div style="color:#002C5F; font-size:16pt; font-weight:800; line-height:1;">PROFORMA</div>'
-    +   '<div style="color:#00AAD2; font-size:10pt; font-weight:700; margin-top:2px;">N° ' + state.proformaCode + '</div>'
-    +   '<div style="color:#475569; font-size:7.5pt; margin-top:3px;"><b>Fecha:</b> ' + today + '</div>'
-    +   '<div style="color:#475569; font-size:7.5pt;"><b>Válida:</b> ' + validUntil + '</div>'
+    +   '<div style="color:#002C5F; font-size:14pt; font-weight:800; line-height:1;">PROFORMA</div>'
+    +   '<div style="color:#00AAD2; font-size:9pt; font-weight:700; margin-top:1px;">N° ' + state.proformaCode + '</div>'
+    +   '<div style="color:#475569; font-size:7pt; margin-top:2px;"><b>Fecha:</b> ' + today + '</div>'
+    +   '<div style="color:#475569; font-size:7pt;"><b>Válida:</b> ' + validUntil + '</div>'
     + '</div>'
   + '</div>';
 
-  // Vehiculo: imagen + datos
+  // --- Vehiculo ---
   const specsHTML = Object.entries(v.specs).map(([k,val]) =>
-    '<div style="' + rowStyle + '">'
-    + '<div style="' + cellLabel('35%') + '">' + k.charAt(0).toUpperCase()+k.slice(1) + '</div>'
-    + '<div style="' + cellStyle('65%') + '">' + val + '</div>'
+    '<div class="pdf-row">'
+    + '<div class="pdf-cell-label">' + k.charAt(0).toUpperCase()+k.slice(1) + '</div>'
+    + '<div class="pdf-cell-value">' + val + '</div>'
     + '</div>'
   ).join('');
 
-  const vehiculoHTML = '<div style="' + sectionTitle + '">Vehículo · ' + v.name + '</div>'
-    + (vehImg ? '<div style="text-align:center; padding:8px; background:#f8fafc;"><img src="' + vehImg + '" onerror="this.style.display=\'none\'; var ph=document.createElement(\'div\'); ph.style.cssText=\'width:200px;height:120px;background:#f1f5f9;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:10pt;border-radius:6px;margin:0 auto;\'; ph.textContent=\'Imagen no disponible\'; this.parentNode.insertBefore(ph, this.nextSibling);" style="max-width:100%; max-height:180px; object-fit:contain;" /></div>' : '')
-    + '<div style="' + rowStyle + 'background:#f1f5f9;font-weight:700;">'
-    +   '<div style="' + cellLabel('35%') + 'background:#e0f2fe;">Precio de lista (USD)</div>'
-    +   '<div style="' + cellStyle('65%') + '"><b style="color:#002C5F; font-size:13pt;">' + fmt(v.price) + '</b></div>'
+  const vehiculoHTML = '<div class="pdf-section">'
+    + '<div class="pdf-bar">Vehículo · ' + v.name + '</div>'
+    + (vehImg ? '<div style="text-align:center; padding:6px; background:#f8fafc;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="max-width:100%; max-height:140px; object-fit:contain;" /></div>' : '')
+    + '<div class="pdf-row" style="background:#f1f5f9; font-weight:700;">'
+    +   '<div class="pdf-cell-label" style="background:#e0f2fe;">Precio de lista (USD)</div>'
+    +   '<div class="pdf-cell-value"><b style="color:#002C5F; font-size:12pt;">' + fmt(v.price) + '</b></div>'
     + '</div>'
-    + specsHTML;
+    + specsHTML
+    + '</div>';
 
-  // Datos del cliente
-  const clienteHTML = '<div style="' + sectionTitle + '">Datos del Cliente</div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Nombre</div><div style="' + cellStyle('65%') + '">' + data.name + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Cédula / RIF</div><div style="' + cellStyle('65%') + '">' + data.cedula + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Teléfono</div><div style="' + cellStyle('65%') + '">' + data.phone + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Correo</div><div style="' + cellStyle('65%') + '">' + data.email + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Asesor</div><div style="' + cellStyle('65%') + '">' + (advisor.nombre || '—') + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('35%') + '">Contacto asesor</div><div style="' + cellStyle('65%') + '">' + (advisor.correo || '') + (advisor.telefono ? ' · ' + advisor.telefono : '') + '</div></div>';
+  // --- Datos del cliente ---
+  const clienteHTML = '<div class="pdf-section">'
+    + '<div class="pdf-bar">Datos del Cliente</div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Nombre</div><div class="pdf-cell-value">' + data.name + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Cédula / RIF</div><div class="pdf-cell-value">' + data.cedula + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Teléfono</div><div class="pdf-cell-value">' + data.phone + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Correo</div><div class="pdf-cell-value">' + data.email + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Asesor</div><div class="pdf-cell-value">' + (advisor.nombre || '—') + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label">Contacto asesor</div><div class="pdf-cell-value">' + (advisor.correo || '') + (advisor.telefono ? ' · ' + advisor.telefono : '') + '</div></div>'
+    + '</div>';
 
-  // Desglose financiero
-  const breakdownHTML = '<div style="' + sectionTitle + '">Desglose Financiero · ' + calc.plan + '</div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Subtotal (precio vehículo)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.precio) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Inicial del cliente (' + (getInitialPct()*100).toFixed(2) + '%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; color:#16a34a; word-break:break-all;">- ' + fmt(calc.inicial) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Comisión Flat</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.comision) + '</div></div>'
-    + (calc.notaria ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Gastos de Notaría</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.notaria) + '</div></div>' : '')
-    + (calc.logistica ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Logística y Transporte</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.logistica) + '</div></div>' : '')
-    + (calc.admin ? '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Gastos administrativos</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.admin) + '</div></div>' : '')
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.iva) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.igtf) + '</div></div>'
-    + '<div style="' + rowStyle + 'background:#e0f2fe;font-weight:700;"><div style="' + cellLabel('55%') + 'background:#bae6fd;">Monto a financiar (incluye impuestos)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:10pt; text-align:right; word-break:break-all;"><b style="color:#002C5F;">' + fmt(calc.montoFinanciar) + '</b></div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Tasa Nominal Anual</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + (calc.tasa*100).toFixed(2) + '%</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Plazo</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + calc.plazo + ' meses</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Sistema de amortización</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + (calc.sistema === 'frances' ? 'Francés (cuota fija)' : 'Alemán (cuota decreciente)') + '</div></div>';
+  // --- Desglose financiero ---
+  const breakdownHTML = '<div class="pdf-section">'
+    + '<div class="pdf-bar">Desglose Financiero · ' + calc.plan + '</div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Subtotal (precio vehículo)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.precio) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Inicial del cliente (' + (getInitialPct()*100).toFixed(2) + '%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right; color:#16a34a;">- ' + fmt(calc.inicial) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Comisión Flat</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.comision) + '</div></div>'
+    + (calc.notaria ? '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Gastos de Notaría</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.notaria) + '</div></div>' : '')
+    + (calc.logistica ? '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Logística y Transporte</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.logistica) + '</div></div>' : '')
+    + (calc.admin ? '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Gastos administrativos</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.admin) + '</div></div>' : '')
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.iva) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.igtf) + '</div></div>'
+    + '<div class="pdf-row" style="background:#e0f2fe; font-weight:700;"><div class="pdf-cell-label" style="flex:0 0 55%; background:#bae6fd;">Monto a financiar (incluye impuestos)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:9pt; text-align:right;"><b style="color:#002C5F;">' + fmt(calc.montoFinanciar) + '</b></div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Tasa Nominal Anual</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + (calc.tasa*100).toFixed(2) + '%</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Plazo</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + calc.plazo + ' meses</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Sistema de amortización</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + (calc.sistema === 'frances' ? 'Francés (cuota fija)' : 'Alemán (cuota decreciente)') + '</div></div>'
+    + '</div>';
 
-  // Cuotas: USD y Bolívares lado a lado
+  // --- Cuota mensual ---
   const cuotaVES = (calc.cuotaMensual * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const cuotaHTML = '<div style="display:flex; gap:4px; margin:6px 0;">'
-    + '<div style="flex:1 1 50%; min-width:0; background:#002C5F; color:#fff; padding:10px; text-align:center; box-sizing:border-box;">'
-    +   '<div style="font-size:8pt; opacity:.85; text-transform:uppercase; letter-spacing:1px;">Cuota mensual</div>'
-    +   '<div style="font-size:22pt; font-weight:900; margin-top:4px;">' + fmt(calc.cuotaMensual) + '</div>'
-    +   '<div style="font-size:8pt; opacity:.85; margin-top:2px;">USD</div>'
+  const cuotaHTML = '<div style="display:flex; gap:4px; margin:4px 0;">'
+    + '<div style="flex:1 1 50%; min-width:0; background:#002C5F; color:#fff; padding:8px; text-align:center; box-sizing:border-box;">'
+    +   '<div style="font-size:7pt; opacity:.85; text-transform:uppercase; letter-spacing:1px;">Cuota mensual</div>'
+    +   '<div style="font-size:18pt; font-weight:900; margin-top:3px;">' + fmt(calc.cuotaMensual) + '</div>'
+    +   '<div style="font-size:7pt; opacity:.85;">USD</div>'
     + '</div>'
-    + '<div style="flex:1 1 50%; min-width:0; background:#00AAD2; color:#fff; padding:10px; text-align:center; box-sizing:border-box;">'
-    +   '<div style="font-size:8pt; opacity:.9; text-transform:uppercase; letter-spacing:1px;">En Bolívares</div>'
-    +   '<div style="font-size:18pt; font-weight:900; margin-top:4px;">' + cuotaVES + '</div>'
-    +   '<div style="font-size:8pt; opacity:.9; margin-top:2px;">BCV: Bs. ' + TASA_BCV.toFixed(2) + '/USD</div>'
+    + '<div style="flex:1 1 50%; min-width:0; background:#00AAD2; color:#fff; padding:8px; text-align:center; box-sizing:border-box;">'
+    +   '<div style="font-size:7pt; opacity:.9; text-transform:uppercase; letter-spacing:1px;">En Bolívares</div>'
+    +   '<div style="font-size:15pt; font-weight:900; margin-top:3px;">' + cuotaVES + '</div>'
+    +   '<div style="font-size:7pt; opacity:.9;">BCV: Bs. ' + TASA_BCV.toFixed(2) + '/USD</div>'
     + '</div>'
   + '</div>';
 
-  // Tabla de amortizacion con flexbox
+  // --- Tabla de amortización (fuentes reducidas) ---
   const nCols = isCTZ ? 6 : 5;
-  const colWidths = isCTZ ? ['8%', '20%', '20%', '15%', '15%', '22%'] : ['10%', '22%', '22%', '18%', '28%'];
+  const colWidths = isCTZ ? ['7%', '21%', '21%', '15%', '15%', '21%'] : ['8%', '24%', '24%', '18%', '26%'];
   const headers = isCTZ ? ['N°', 'Capital', 'Interés', 'IVA 16%', 'IGTF 3%', 'Cuota'] : ['N°', 'Capital', 'Interés', 'Gtos. Adm.', 'Cuota'];
 
-  const thStyle = (w) => 'flex:0 0 ' + w + '; min-width:0; padding:4px 4px; font-size:8pt; font-weight:700; text-align:right; box-sizing:border-box; word-break:break-all;';
-  const thStyleCenter = (w) => 'flex:0 0 ' + w + '; min-width:0; padding:4px 4px; font-size:8pt; font-weight:700; text-align:center; box-sizing:border-box; word-break:break-all;';
-  const tdStyle = (w) => 'flex:0 0 ' + w + '; min-width:0; padding:3px 4px; font-size:8pt; text-align:right; box-sizing:border-box; word-break:break-all;';
-  const tdStyleCenter = (w) => 'flex:0 0 ' + w + '; min-width:0; padding:3px 4px; font-size:8pt; text-align:center; box-sizing:border-box; word-break:break-all;';
-
-  let amortHeader = '<div style="display:flex; background:#00AAD2; color:#fff;">';
+  let amortTable = '<table class="pdf-amort-table">'
+    + '<thead><tr>';
   for (let i = 0; i < nCols; i++) {
-    amortHeader += '<div style="' + (i === 0 ? thStyleCenter(colWidths[i]) : thStyle(colWidths[i])) + '">' + headers[i] + '</div>';
+    amortTable += '<th style="width:' + colWidths[i] + ';">' + headers[i] + '</th>';
   }
-  amortHeader += '</div>';
+  amortTable += '</tr></thead><tbody>';
 
-  let amortRows = '';
   for (const r of showRows) {
-    amortRows += '<div style="display:flex; border-bottom:1px solid #e2e8f0;">';
-    amortRows += '<div style="' + tdStyleCenter(colWidths[0]) + '">' + r.k + '</div>';
-    amortRows += '<div style="' + tdStyle(colWidths[1]) + '">' + fmt(r.capital) + '</div>';
-    amortRows += '<div style="' + tdStyle(colWidths[2]) + '">' + fmt(r.interest) + '</div>';
+    amortTable += '<tr>';
+    amortTable += '<td style="width:' + colWidths[0] + ';">' + r.k + '</td>';
+    amortTable += '<td style="width:' + colWidths[1] + ';">' + fmt(r.capital) + '</td>';
+    amortTable += '<td style="width:' + colWidths[2] + ';">' + fmt(r.interest) + '</td>';
     if (isCTZ) {
-      amortRows += '<div style="' + tdStyle(colWidths[3]) + '">' + fmt(r.ivaOnInterest) + '</div>';
-      amortRows += '<div style="' + tdStyle(colWidths[4]) + '">' + fmt(r.igtf) + '</div>';
-      amortRows += '<div style="' + tdStyle(colWidths[5]) + 'font-weight:700;color:#002C5F;">' + fmt(r.cuota) + '</div>';
+      amortTable += '<td style="width:' + colWidths[3] + ';">' + fmt(r.ivaOnInterest) + '</td>';
+      amortTable += '<td style="width:' + colWidths[4] + ';">' + fmt(r.igtf) + '</td>';
+      amortTable += '<td style="width:' + colWidths[5] + '; font-weight:700; color:#002C5F;">' + fmt(r.cuota) + '</td>';
     } else {
-      amortRows += '<div style="' + tdStyle(colWidths[3]) + '">' + (r.admin ? fmt(r.admin) : '—') + '</div>';
-      amortRows += '<div style="' + tdStyle(colWidths[4]) + 'font-weight:700;color:#002C5F;">' + fmt(r.cuota) + '</div>';
+      amortTable += '<td style="width:' + colWidths[3] + ';">' + (r.admin ? fmt(r.admin) : '—') + '</td>';
+      amortTable += '<td style="width:' + colWidths[4] + '; font-weight:700; color:#002C5F;">' + fmt(r.cuota) + '</td>';
     }
-    amortRows += '</div>';
+    amortTable += '</tr>';
   }
+  amortTable += '</tbody></table>' + moreRowsNote;
 
-  const amortHTML = '<div style="' + sectionTitle + '">Tabla de Amortización (' + (isCTZ ? 'cuotas decrecientes' : 'cuota fija') + ')</div>'
-    + amortHeader + amortRows + moreRowsNote;
+  const amortHTML = '<div class="html2pdf__page-break"></div>'
+    + '<div class="pdf-section">'
+    + '<div class="pdf-bar">Tabla de Amortización (' + (isCTZ ? 'cuotas decrecientes' : 'cuota fija') + ')</div>'
+    + amortTable
+    + '</div>';
 
-  // Terminos
-  const terminosHTML = '<div style="' + sectionTitle + '">Términos y Condiciones</div>'
-    + '<div style="font-size:7.5pt; line-height:1.4; color:#475569; padding:6px 8px; word-break:break-word;">'
+  // --- Terminos ---
+  const terminosHTML = '<div class="pdf-section">'
+    + '<div class="pdf-bar">Términos y Condiciones</div>'
+    + '<div style="font-size:7pt; line-height:1.3; color:#475569; padding:4px 6px; word-break:break-word;">'
     + '1. Esta proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
     + '2. El monto a financiar incluye comisión flat y gastos aplicables según el plan seleccionado. No incluye seguro.<br>'
     + '3. La aprobación final del crédito está sujeta al análisis de la entidad financiera o programa seleccionado.<br>'
@@ -1975,37 +2075,39 @@ function buildPDFHTML(calc, advisor) {
     + '5. Los precios están expresados en USD y su equivalente en bolívares se calcula a la tasa BCV (Bs. ' + TASA_BCV.toFixed(2) + '/USD).<br>'
     + '6. En el plan CTZ las cuotas son decrecientes (alemán). En Provincial, Pivca y V13 las cuotas son fijas (francés).<br>'
     + '7. Automotores Kibun Mérida se reserva el derecho de actualizar precios y condiciones sin previo aviso.'
+    + '</div>'
     + '</div>';
 
-  // === FORMA DE PAGO — Desglose fiscal + datos bancarios ===
+  // --- Forma de pago ---
   const totalBs = (calc.totalFiscal * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const fiscalHTML = '<div style="' + sectionTitle + '">Forma de Pago · Desglose Fiscal</div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Subtotal (PVP / base imponible)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.subtotalFiscal) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.iva) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.igtf) + '</div></div>'
-    + '<div style="' + rowStyle + '"><div style="' + cellLabel('55%') + '">Trámites y Gastos</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:9pt; text-align:right; word-break:break-all;">' + fmt(calc.gastos) + '</div></div>'
-    + '<div style="' + rowStyle + 'background:#002C5F;color:#fff;font-weight:700;"><div style="' + cellLabel('55%') + 'background:#001a3a;color:#fff;">TOTAL A PAGAR (USD)</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:11pt; text-align:right; word-break:break-all;"><b>' + fmt(calc.totalFiscal) + '</b></div></div>'
-    + '<div style="' + rowStyle + 'background:#e0f2fe;"><div style="' + cellLabel('55%') + 'background:#bae6fd;">Total a Pagar en Bolívares (Tasa BCV Bs. ' + TASA_BCV.toFixed(2) + ')</div><div style="flex:1 1 45%; min-width:0; padding:5px 8px; font-size:10pt; text-align:right; word-break:break-all;"><b style="color:#002C5F;">Bs. ' + totalBs + '</b></div></div>'
-    + '<div style="margin-top:6px; padding:6px 8px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:8.5pt; color:#0f172a;">'
-    +   '<b style="color:#002C5F;">💳 Cuentas para pago:</b><br>'
+  const fiscalHTML = '<div class="pdf-section">'
+    + '<div class="pdf-bar">Forma de Pago · Desglose Fiscal</div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Subtotal (PVP / base imponible)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.subtotalFiscal) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.iva) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.igtf) + '</div></div>'
+    + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Trámites y Gastos</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.gastos) + '</div></div>'
+    + '<div class="pdf-row" style="background:#002C5F; color:#fff; font-weight:700;"><div class="pdf-cell-label" style="flex:0 0 55%; background:#001a3a; color:#fff;">TOTAL A PAGAR (USD)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:10pt; text-align:right;"><b>' + fmt(calc.totalFiscal) + '</b></div></div>'
+    + '<div class="pdf-row" style="background:#e0f2fe;"><div class="pdf-cell-label" style="flex:0 0 55%; background:#bae6fd;">Total a Pagar en Bolívares (Tasa BCV Bs. ' + TASA_BCV.toFixed(2) + ')</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:9pt; text-align:right;"><b style="color:#002C5F;">Bs. ' + totalBs + '</b></div></div>'
+    + '<div style="margin-top:4px; padding:4px 6px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:7.5pt; color:#0f172a;">'
+    +   '<b style="color:#002C5F;">Cuentas para pago:</b><br>'
     +   '• <b>USD:</b> Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + '<br>'
     +   '• <b>Bs.:</b> Transferencia a ' + EMPRESA.bancoBs + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
+    + '</div>'
     + '</div>';
 
-  // Firmas lado a lado
-  const firmasHTML = '<div style="display:flex; gap:10px; margin-top:12px;">'
-    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:4px; text-align:center; font-size:9pt; box-sizing:border-box;">'
+  // --- Firmas ---
+  const firmasHTML = '<div style="display:flex; gap:8px; margin-top:8px;">'
+    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:3px; text-align:center; font-size:8pt;">'
     +   '<b>' + (advisor.nombre || 'Asesor Comercial') + '</b><br><span style="color:#64748b;">Asesor Automotores Kibun</span>'
     + '</div>'
-    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:4px; text-align:center; font-size:9pt; box-sizing:border-box;">'
+    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:3px; text-align:center; font-size:8pt;">'
     +   '<b>' + data.name + '</b><br><span style="color:#64748b;">' + data.cedula + ' · Cliente</span>'
     + '</div>'
   + '</div>'
-  + '<div style="margin-top:8px; text-align:center; font-size:7pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — Automotores Kibun Mérida · ' + state.proformaCode + '</div>';
+  + '<div style="margin-top:6px; text-align:center; font-size:6.5pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — Automotores Kibun Mérida · ' + state.proformaCode + '</div>';
 
-  return '<div style="font-family:Arial,sans-serif; font-size:10pt; color:#0f172a; width:100%; max-width:100%; margin:0; padding:0 0 0 47.5mm; box-sizing:border-box; word-break:break-word; overflow-wrap:break-word;">'
-    + headerHTML
-    + '<div style="height:3px; background:linear-gradient(90deg,#002C5F,#00AAD2); margin:6px 0 8px;"></div>'
+  return headerHTML
+    + '<div style="height:2px; background:linear-gradient(90deg,#002C5F,#00AAD2); margin:4px 0 6px;"></div>'
     + clienteHTML
     + vehiculoHTML
     + breakdownHTML
@@ -2013,10 +2115,107 @@ function buildPDFHTML(calc, advisor) {
     + amortHTML
     + fiscalHTML
     + terminosHTML
-    + firmasHTML
-  + '</div>';
+    + firmasHTML;
 }
 
+/* =============================================================
+   PDF PREVIEW + DOWNLOAD
+   ============================================================= */
+
+let pendingPdfHtml = '';
+
+function showPdfPreview() {
+  const modal  = document.getElementById('pdfPreviewModal');
+  const target = document.getElementById('pdf-content');
+  const btn    = document.getElementById('btnDownloadPdf');
+
+  // Renderizar HTML directamente en #pdf-content (VISIBLE, width 794px)
+  target.innerHTML = pendingPdfHtml;
+  btn.disabled = true;
+  modal.classList.add('active');
+
+  // Esperar a que todas las imágenes carguen para habilitar el botón
+  const imgs = target.querySelectorAll('img');
+  if (imgs.length === 0) {
+    btn.disabled = false;
+  } else {
+    let loaded = 0;
+    const total = imgs.length;
+    const checkDone = () => { loaded++; if (loaded >= total) btn.disabled = false; };
+    imgs.forEach(img => {
+      if (img.complete && img.naturalWidth > 0) { checkDone(); }
+      else { img.onload = checkDone; img.onerror = checkDone; }
+    });
+    setTimeout(() => { btn.disabled = false; }, 4000);
+  }
+  pendingPdfHtml = '';
+}
+
+function closePdfPreview() {
+  const modal = document.getElementById('pdfPreviewModal');
+  const target = document.getElementById('pdf-content');
+  modal.classList.remove('active');
+  target.innerHTML = '';
+  pendingPdfHtml = '';
+}
+
+async function downloadPdfFromPreview() {
+  const btn = document.getElementById('btnDownloadPdf');
+  const originalText = btn.textContent;
+  btn.textContent = 'Generando PDF...';
+  btn.disabled = true;
+
+  const element = document.getElementById('pdf-content');
+
+  // Esperar fuentes
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch(e) {}
+  }
+
+  // Esperar imágenes
+  const imgs = element.querySelectorAll('img');
+  await Promise.all(Array.from(imgs).map(img => {
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(res => { img.onload = res; img.onerror = res; setTimeout(res, 3000); });
+  }));
+
+  // Activar modo exportación (aislamiento de impresión)
+  element.classList.add('pdf-export-mode');
+  element.offsetHeight;
+  await new Promise(r => setTimeout(r, 100));
+
+  const opt = {
+    margin:       10,
+    filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
+    pagebreak:    { mode: ['css', 'legacy'], avoid: ['.pdf-section', 'table', 'tr'] }
+  };
+
+  let pdfOk = false;
+  try {
+    await html2pdf().set(opt).from(element).save();
+    pdfOk = true;
+  } catch(err) {
+    console.error('[PDF] Error:', err);
+    alert('Error al generar el PDF. Intente de nuevo.');
+  } finally {
+    // Restaurar vista web normal
+    element.classList.remove('pdf-export-mode');
+    btn.textContent = originalText;
+    btn.disabled = false;
+    closePdfPreview();
+
+    const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
+    showSuccessModal(state.proformaCode, status.leadOk, pdfOk, status.leadErr);
+    window.__lastLeadStatus = null;
+  }
+}
+
+/* =============================================================
+   generatePDF — genera HTML, muestra preview, descarga al confirmar
+   ============================================================= */
 async function generatePDF(leadResult) {
   const calc = getActiveCalc();
   const sel = document.getElementById('salespersonBranch');
@@ -2027,119 +2226,15 @@ async function generatePDF(leadResult) {
     telefono: opt?.dataset?.telefono || ''
   };
 
-  const tpl = document.getElementById('pdfTemplate');
+  // Ocultar loading overlay antes de mostrar preview
+  document.getElementById('loadingOverlay').classList.add('hidden');
 
-  // (1) Inyectar HTML
-  tpl.innerHTML = buildPDFHTML(calc, advisor);
-  console.info('[generatePDF] HTML inyectado');
+  // (1) Generar HTML
+  pendingPdfHtml = buildPDFHTML(calc, advisor);
+  console.info('[generatePDF] HTML generado');
 
-  // (2) ESPERAR A QUE LAS FUENTES WEB ESTEN LISTAS (Inter de Google Fonts)
-  if (document.fonts && document.fonts.ready) {
-    try { await document.fonts.ready; console.info('[generatePDF] Fuentes listas'); }
-    catch (e) { console.warn('[generatePDF] Fonts.ready fallo:', e.message); }
-  }
-
-  // (3) Esperar imagenes del template (si las hay)
-  const imgs = tpl.querySelectorAll('img');
-  await Promise.all(Array.from(imgs).map(img => {
-    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-    return new Promise(res => {
-      img.onload = res;
-      img.onerror = res;
-      setTimeout(res, 3000);
-    });
-  }));
-  console.info('[generatePDF] ' + imgs.length + ' imagenes listas');
-
-  // (4) Estilo de captura: hacer visible el template SOLO durante la captura.
-  //     display:none se reemplaza por display:block, y se posiciona en el viewport.
-  // (4) Activar template: el CSS .pdf-active controla todo
-  //     NO aplicar width/height/padding inline (CSS es la unica fuente de verdad)
-  tpl.classList.add('pdf-active');
-  tpl.style.transform     = 'translateX(0) scale(1)';
-  tpl.style.transformOrigin = 'top left';
-  tpl.dataset.captureReady = '1';
-
-  // (4.1) Wrapper interno: respeta el padding 10mm del padre
-  //        NO sobrescribir padding (viene de buildPDFHTML con el centrado)
-  const innerDiv = tpl.querySelector('div');
-  if (innerDiv) {
-    innerDiv.style.width         = '100%';
-    innerDiv.style.maxWidth      = '100%';
-    innerDiv.style.margin        = '0';
-    innerDiv.style.boxSizing     = 'border-box';
-    innerDiv.style.overflow      = 'hidden';
-  }
-
-  // (4.2) Marcar cada seccion principal con .pdf-block para page-break
-  tpl.querySelectorAll('table').forEach((tb, i) => {
-    tb.classList.add('pdf-block');
-    tb.style.tableLayout = 'fixed';
-    tb.style.width = '100%';
-    tb.style.maxWidth = '100%';
-    tb.style.pageBreakInside = 'avoid';
-    tb.style.breakInside = 'avoid';
-  });
-
-  // (4.3) Tambien marcar hijos directos como bloques
-  tpl.querySelectorAll(':scope > div > *').forEach(el => {
-    el.classList.add('pdf-section');
-    el.style.pageBreakInside = 'avoid';
-    el.style.breakInside = 'avoid';
-  });
-
-  // (4.5) SCROLL AL TOPE: si la pagina esta scrolleada, el template
-  //       (que esta en top:0) podria quedar fuera del viewport visible
-  //       y html2canvas podria capturarlo mal.
-  window.scrollTo(0, 0);
-
-  // (5) Forzar reflow del navegador y esperar 2 paint cycles
-  tpl.offsetHeight; // fuerza reflow sincronico
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  await new Promise(r => setTimeout(r, 800)); // margen adicional
-
-  const w = tpl.offsetWidth;
-  const h = tpl.offsetHeight;
-  console.info('[generatePDF] Template size: ' + w + ' x ' + h + ' px (scrollHeight=' + tpl.scrollHeight + ')');
-
-  // (6) Configuracion html2canvas + jsPDF
-  // IMPORTANTE: margin: 0 aqui. El padding visual va DENTRO del template
-  // (tpl.style.padding = '8mm 6mm'). Asi el contenido cabe exacto en
-  // 210mm x 297mm sin overflow ni clipping.
-  // Configuracion que ya daba contenido visible (estado anterior funcional)
-  const opt_pdf = {
-    margin: 0,
-    filename: 'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      letterRendering: true,
-      windowWidth: 794,
-      windowHeight: 1123,
-      scrollX: 0,
-      scrollY: 0
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['.pdf-block', 'tr', 'td'] }
-  };
-
-  try {
-    // (7) Capturar. .then() para asegurar limpieza DESPUES de la descarga.
-    const pdfPromise = html2pdf().set(opt_pdf).from(tpl).save();
-    await pdfPromise;
-    console.info('[generatePDF] PDF descargado OK');
-  } catch (err) {
-    console.error('[generatePDF] Error:', err);
-    throw err;
-  } finally {
-    // (8) Restaurar SIEMPRE a display:none (exito o error).
-    //     Asi el template NUNCA interfiere con el grid del catalogo.
-    tpl.removeAttribute('style');
-    tpl.style.display = 'none';
-    tpl.innerHTML = '';
-    console.info('[generatePDF] Template restaurado a display:none');
-  }
+  // (2) Mostrar preview (el usuario decide cuándo descargar)
+  showPdfPreview();
 }
 
 /* =============================================================
@@ -2252,18 +2347,10 @@ function wireEvents() {
       backupLeadToLocal(payload, leadErr);
     }
 
-    let pdfOk = false;
-    try {
-      await generatePDF();
-      pdfOk = true;
-    } catch (err) {
-      console.error('PDF error:', err);
-    }
+    // Guardar estado del lead para usarlo después del preview
+    window.__lastLeadStatus = { leadOk, leadErr };
 
-    overlay.classList.add('hidden');
-
-    // Mostrar modal de éxito con opción de nueva cotización
-    showSuccessModal(state.proformaCode, leadOk, pdfOk, leadErr);
+    await generatePDF();
 
     // Generar nuevo código de proforma para la siguiente
     state.proformaCode = generateProformaCode();

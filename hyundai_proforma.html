@@ -2111,7 +2111,7 @@ function descargarProformaDirectamente() {
   element.style.display = 'block';
   element.style.margin = '0 auto';
   element.style.boxSizing = 'border-box';
-  element.style.textAlign = 'left';
+  element.style.textAlign = 'center';
 
   // Remover flex del padre para que margin auto funcione
   const parent = element.parentElement;
@@ -2123,15 +2123,14 @@ function descargarProformaDirectamente() {
   }
 
   const opt = {
-    margin:       [10, 13, 10, 13], // mm — simétricos: centrado automático
+    margin:       [10, 13, 10, 13],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
       scale: 2,
       useCORS: true,
       scrollX: 0,
-      scrollY: 0,
-      windowWidth: document.getElementById('pdf-content').scrollWidth
+      scrollY: 0
     },
     jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }

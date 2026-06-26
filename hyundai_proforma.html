@@ -2121,9 +2121,11 @@ async function downloadPdfFromPreview() {
   btn.textContent = 'Generando PDF...';
   btn.disabled = true;
 
+  const plantilla = document.getElementById('plantilla-pdf-kibun');
+  const contenido = document.getElementById('pdf-contenido-dinamico');
+  if (!plantilla) { btn.textContent = originalText; btn.disabled = false; return; }
+
   // 1. Inyectar HTML en la plantilla oculta
-  const plantilla  = document.getElementById('plantilla-pdf-kibun');
-  const contenido  = document.getElementById('pdf-contenido-dinamico');
   contenido.innerHTML = pendingPdfHtml;
 
   // 2. Esperar fuentes e imágenes
@@ -2136,11 +2138,13 @@ async function downloadPdfFromPreview() {
     return new Promise(res => { img.onload = res; img.onerror = res; setTimeout(res, 3000); });
   }));
 
-  // 3. Mostrar momentáneamente para que html2pdf lo lea
+  // 3. Mostrar la plantilla para que el DOM la procese
   plantilla.style.display = 'block';
-  plantilla.offsetHeight;
-  await new Promise(r => setTimeout(r, 100));
 
+  // 4. CRÍTICO: Pausa para asegurar que el navegador dibuje el HTML antes de la captura
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // 5. Configuración de html2pdf
   const opt = {
     margin:       [0.5, 0.5, 0.5, 0.5],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
@@ -2155,6 +2159,7 @@ async function downloadPdfFromPreview() {
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
   };
 
+  // 6. Generar el PDF
   let pdfOk = false;
   try {
     window.scrollTo(0, 0);
@@ -2164,7 +2169,7 @@ async function downloadPdfFromPreview() {
     console.error('[PDF] Error:', err);
     alert('Error al generar el PDF. Intente de nuevo.');
   } finally {
-    // 4. Ocultar plantilla y limpiar
+    // 7. Ocultar plantilla y limpiar
     plantilla.style.display = 'none';
     contenido.innerHTML = '';
     pendingPdfHtml = '';

@@ -91,6 +91,7 @@
     max-width: 816px !important;
     min-width: 816px !important;
     margin: 0 auto !important;
+    padding: 12px !important;
     box-sizing: border-box !important;
     background-color: #ffffff !important;
     font-family: Arial, sans-serif;
@@ -110,8 +111,8 @@
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
-    font-size: 11px !important;
-    padding: 6px !important;
+    font-size: 9.5px !important;
+    padding: 3.5px !important;
   }
 
   /* === EVITAR CORTE DE PÁGINA === */
@@ -2086,7 +2087,7 @@ function descargarProformaDirectamente() {
   element.style.boxSizing = 'border-box';
 
   const opt = {
-    margin:       [0.4, 0.4, 0.4, 0.4],
+    margin:       [0.3, 0.3, 0.3, 0.3],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {

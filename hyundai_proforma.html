@@ -231,9 +231,6 @@
       </div>
     </div>
     <div class="hidden md:flex items-center gap-2 text-xs text-slate-600">
-      <span class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 inline-flex items-center gap-1" title="Tasa BCV actualizada en vivo desde DolarApi">
-        💵 BCV: Bs. <span id="bcvBadge">—</span>
-      </span>
       <span class="px-2 py-1 rounded bg-slate-100 font-semibold">RIF: J-12345678-9</span>
       <span class="px-2 py-1 rounded bg-slate-100 font-semibold">Proforma # <span id="proformaBadge">—</span></span>
     </div>
@@ -397,7 +394,6 @@
             <div class="mt-4 rounded-xl bg-hyundai text-white p-4 text-center">
               <p class="text-[11px] uppercase tracking-wider opacity-80">Cuota mensual estimada</p>
               <p class="text-3xl font-extrabold leading-tight" id="sumCuota">$0.00</p>
-              <p class="text-xs opacity-80 mt-1">≈ Bs. <span id="sumCuotaBs">0.00</span> (Tasa BCV)</p>
             </div>
             <p class="text-[10px] text-slate-400 text-center">*Cálculo referencial. Sujeto a aprobación crediticia.</p>
           </div>
@@ -512,7 +508,7 @@
 <footer class="bg-hyundai3 text-white/80 text-xs py-6 mt-10">
   <div class="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
     <span>© 2026 Automotores Kibun Mérida · Concesionario oficial Hyundai</span>
-    <span>Simulador de créditos v3.0 · Tasa BCV referencial Bs. <span id="footerTasa">—</span> / USD</span>
+    <span>Simulador de créditos v3.0 · Precios en USD</span>
   </div>
 </footer>
 
@@ -618,7 +614,6 @@ const vehicleImages = {"Accent 1.5L A/T":"data:image/png;base64,iVBORw0KGgoAAAAN
      - Cuota Mensual Estimada      (Number / Currency)
      - Tasa Aplicada               (Number)             % anual
      - Plazo                       (Number)             meses
-     - Tasa BCV Referencial        (Number)             Bs/USD
    ----------------------------------------------------
    CONFIGURACIÓN REQUERIDA — Reemplaza los placeholders:
 */
@@ -630,39 +625,7 @@ let   AIRTABLE_API_KEY = (typeof AIRTABLE_CONFIG !== 'undefined' && AIRTABLE_CON
   || localStorage.getItem('airtable_api_key')
   || '';
 
-let   TASA_BCV   = 36.50;    // Tasa de cambio Bs/USD — se actualiza automáticamente desde DolarApi Venezuela
 const SEGURO_PCT = 0.035;    // 3.5% anual del valor del vehículo (referencial)
-
-/* =============================================================
-   1.1) CONSULTA AUTOMÁTICA DE TASA BCV (DolarApi Venezuela)
-   =============================================================
-   Endpoint: https://ve.dolarapi.com/v1/dolares/oficial
-   Se ejecuta silenciosamente al cargar la página y antes de
-   generar cada PDF para garantizar la tasa del día.
-   Si la API falla, mantiene el valor de respaldo (36.50) y
-   notifica por consola.
-*/
-async function fetchBCVRate() {
-  try {
-    const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { method: 'GET', cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (data && typeof data.promedio === 'number' && data.promedio > 0) {
-      TASA_BCV = data.promedio;
-      console.info('%c✅ Tasa BCV actualizada automáticamente desde DolarApi: Bs. ' + TASA_BCV.toFixed(2) + ' / USD',
-                   'color:#10b981;font-weight:bold;');
-    } else {
-      throw new Error('La respuesta no contiene el campo "promedio" válido');
-    }
-  } catch (err) {
-    console.warn('%c⚠ No se pudo actualizar la tasa BCV. Se mantiene valor de respaldo: Bs. ' + TASA_BCV.toFixed(2) + ' / USD. Detalle: ' + err.message,
-                 'color:#f59e0b;font-weight:bold;');
-  }
-  // Refrescar UI con la tasa actual (sea nueva o de respaldo)
-  const t1 = document.getElementById('footerTasa'); if (t1) t1.textContent = TASA_BCV.toFixed(2);
-  const t2 = document.getElementById('bcvBadge');   if (t2) t2.textContent = TASA_BCV.toFixed(2);
-  if (typeof updateLiveSummary === 'function') updateLiveSummary();
-}
 
 /* =============================================================
    2) PLANES FINANCIEROS — CONFIGURACIÓN OFICIAL
@@ -962,7 +925,6 @@ function generateProformaCode() {
    5) UTILIDADES
    ============================================================= */
 const fmt = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtBs = (n) => 'Bs. ' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (Number(n) * 100).toFixed(2) + '%';
 
 function getInitialAmount() {
@@ -1483,7 +1445,6 @@ function updateLiveSummary() {
   document.getElementById('sumRate').textContent     = (calc.tasa*100).toFixed(2) + '% TNA';
   document.getElementById('sumTerm').textContent     = calc.plazo + ' meses';
   document.getElementById('sumCuota').textContent     = fmt(calc.cuotaMensual);
-  document.getElementById('sumCuotaBs').textContent  = (calc.cuotaMensual * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const v = state.selectedVehicle;
   const equiv = state.initialMode === 'pct' ? (v.price * state.initialValue / 100) : state.initialValue;
@@ -1974,19 +1935,11 @@ function buildPDFHTML(calc, advisor) {
     + '</div>';
 
   // --- Cuota mensual ---
-  const cuotaVES = (calc.cuotaMensual * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const cuotaHTML = '<div style="display:flex; gap:4px; margin:4px 0;">'
-    + '<div style="flex:1 1 50%; min-width:0; background:#002C5F; color:#fff; padding:8px; text-align:center; box-sizing:border-box;">'
-    +   '<div style="font-size:7pt; opacity:.85; text-transform:uppercase; letter-spacing:1px;">Cuota mensual</div>'
-    +   '<div style="font-size:18pt; font-weight:900; margin-top:3px;">' + fmt(calc.cuotaMensual) + '</div>'
-    +   '<div style="font-size:7pt; opacity:.85;">USD</div>'
-    + '</div>'
-    + '<div style="flex:1 1 50%; min-width:0; background:#00AAD2; color:#fff; padding:8px; text-align:center; box-sizing:border-box;">'
-    +   '<div style="font-size:7pt; opacity:.9; text-transform:uppercase; letter-spacing:1px;">En Bolívares</div>'
-    +   '<div style="font-size:15pt; font-weight:900; margin-top:3px;">' + cuotaVES + '</div>'
-    +   '<div style="font-size:7pt; opacity:.9;">BCV: Bs. ' + TASA_BCV.toFixed(2) + '/USD</div>'
-    + '</div>'
-  + '</div>';
+  const cuotaHTML = '<div style="background:#002C5F; color:#fff; padding:10px; text-align:center; margin:4px 0;">'
+    + '<div style="font-size:7pt; opacity:.85; text-transform:uppercase; letter-spacing:1px;">Cuota mensual</div>'
+    + '<div style="font-size:20pt; font-weight:900; margin-top:3px;">' + fmt(calc.cuotaMensual) + '</div>'
+    + '<div style="font-size:7pt; opacity:.85;">USD</div>'
+    + '</div>';
 
   // --- Tabla de amortización (fuentes reducidas) ---
   const nCols = isCTZ ? 6 : 5;
@@ -2030,14 +1983,13 @@ function buildPDFHTML(calc, advisor) {
     + '2. El monto a financiar incluye comisión flat y gastos aplicables según el plan seleccionado. No incluye seguro.<br>'
     + '3. La aprobación final del crédito está sujeta al análisis de la entidad financiera o programa seleccionado.<br>'
     + '4. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones del mercado.<br>'
-    + '5. Los precios están expresados en USD y su equivalente en bolívares se calcula a la tasa BCV (Bs. ' + TASA_BCV.toFixed(2) + '/USD).<br>'
+    + '5. Los precios están expresados exclusivamente en dólares americanos (USD).<br>'
     + '6. En el plan CTZ las cuotas son decrecientes (alemán). En Provincial, Pivca y V13 las cuotas son fijas (francés).<br>'
     + '7. Automotores Kibun Mérida se reserva el derecho de actualizar precios y condiciones sin previo aviso.'
     + '</div>'
     + '</div>';
 
   // --- Forma de pago ---
-  const totalBs = (calc.totalFiscal * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const fiscalHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Forma de Pago · Desglose Fiscal</div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Subtotal (PVP / base imponible)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.subtotalFiscal) + '</div></div>'
@@ -2045,11 +1997,9 @@ function buildPDFHTML(calc, advisor) {
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IGTF (3%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.igtf) + '</div></div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Trámites y Gastos</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.gastos) + '</div></div>'
     + '<div class="pdf-row" style="background:#002C5F; color:#fff; font-weight:700;"><div class="pdf-cell-label" style="flex:0 0 55%; background:#001a3a; color:#fff;">TOTAL A PAGAR (USD)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:10pt; text-align:right;"><b>' + fmt(calc.totalFiscal) + '</b></div></div>'
-    + '<div class="pdf-row" style="background:#e0f2fe;"><div class="pdf-cell-label" style="flex:0 0 55%; background:#bae6fd;">Total a Pagar en Bolívares (Tasa BCV Bs. ' + TASA_BCV.toFixed(2) + ')</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:9pt; text-align:right;"><b style="color:#002C5F;">Bs. ' + totalBs + '</b></div></div>'
     + '<div style="margin-top:4px; padding:4px 6px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:7.5pt; color:#0f172a;">'
-    +   '<b style="color:#002C5F;">Cuentas para pago:</b><br>'
-    +   '• <b>USD:</b> Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + '<br>'
-    +   '• <b>Bs.:</b> Transferencia a ' + EMPRESA.bancoBs + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
+    +   '<b style="color:#002C5F;">Cuenta para pago en USD:</b><br>'
+    +   '• Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
     + '</div>'
     + '</div>';
 
@@ -2360,11 +2310,8 @@ function wireEvents() {
 
     const overlay = document.getElementById('loadingOverlay');
     document.getElementById('loadingTitle').textContent = 'Generando proforma oficial...';
-    document.getElementById('loadingMsg').textContent = 'Actualizando tasa BCV y generando PDF.';
+    document.getElementById('loadingMsg').textContent = 'Generando PDF.';
     overlay.classList.remove('hidden');
-
-    // Refrescar tasa BCV justo antes de generar el PDF para garantizar la tasa del día
-    await fetchBCVRate();
 
     let leadOk = false, leadErr = '';
     try {
@@ -2544,7 +2491,6 @@ function setupTokenBanner() {
 
 async function init() {
   document.getElementById('proformaBadge').textContent = state.proformaCode;
-  document.getElementById('footerTasa').textContent = TASA_BCV.toFixed(2);
 
   // Mostrar banner de token si no hay token configurado
   setupTokenBanner();
@@ -2571,11 +2517,7 @@ async function init() {
   };
 
   try {
-    // Paso 1: Tasa BCV
-    setProgress(15, 'Consultando tasa oficial del BCV…');
-    await fetchBCVRate();
-
-    // Paso 2: VEHÍCULOS (fetchVehiculos) — bloqueante
+    // Paso 1: VEHÍCULOS (fetchVehiculos) — bloqueante
     setProgress(40, 'Cargando catálogo de vehículos desde Airtable…');
     await fetchVehiculos();
     renderVehicleGrid();   // Renderizar el DOM apenas los datos estén en memoria

@@ -107,36 +107,13 @@
   .pdf-export-mode {
     width: 800px !important;
     max-width: 800px !important;
-    min-width: 800px !important;
-    display: block !important;
     margin: 0 auto !important;
     padding: 10px 20px !important;
+    background-color: white !important;
     box-sizing: border-box !important;
-    background: white;
     float: none !important;
     position: static !important;
-    left: auto !important;
-    right: auto !important;
     transform: none !important;
-  }
-  .pdf-export-mode * {
-    flex-wrap: nowrap !important;
-    box-sizing: border-box !important;
-    max-width: none !important;
-    min-width: 0 !important;
-  }
-  .pdf-export-mode .pdf-row {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    width: 100% !important;
-  }
-  .pdf-export-mode .pdf-cell-label {
-    flex: 0 0 35% !important;
-    min-width: 35% !important;
-  }
-  .pdf-export-mode .pdf-cell-value {
-    flex: 1 1 65% !important;
-    min-width: 0 !important;
   }
   .pdf-export-mode table {
     width: 100% !important;
@@ -144,16 +121,11 @@
     word-wrap: break-word !important;
     border-collapse: collapse !important;
   }
-  .pdf-export-mode table td {
+  .pdf-export-mode table td,
+  .pdf-export-mode table th {
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
-    font-size: 11px !important;
-    padding: 4px !important;
-  }
-  .pdf-export-mode table th {
-    font-size: 11px !important;
-    padding: 4px !important;
   }
   .pdf-export-mode .pdf-bar {
     width: 100% !important;
@@ -2188,21 +2160,23 @@ async function downloadPdfFromPreview() {
   await new Promise(r => setTimeout(r, 100));
 
   const opt = {
-    margin:       [10, 10, 10, 10],
+    margin:       0.2,
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
       scale: 2,
       useCORS: true,
-      letterRendering: true,
+      scrollX: 0,
+      scrollY: 0,
       windowWidth: 800
     },
-    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', '.evitar-corte', 'img'] }
   };
 
   let pdfOk = false;
   try {
+    window.scrollTo(0, 0);
     await html2pdf().set(opt).from(element).save();
     pdfOk = true;
   } catch(err) {

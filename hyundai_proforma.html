@@ -87,11 +87,11 @@
 
   /* === PDF CONTENT — Preview en pantalla === */
   #pdf-content {
-    width: 816px !important;
-    max-width: 816px !important;
-    min-width: 816px !important;
+    width: 800px !important;
+    max-width: 800px !important;
+    min-width: 800px !important;
     margin: 0 auto !important;
-    padding: 15px !important;
+    padding: 20px !important;
     box-sizing: border-box !important;
     background-color: #ffffff !important;
     font-family: Arial, sans-serif;
@@ -2080,14 +2080,14 @@ function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
   if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
 
-  element.style.width = '816px';
-  element.style.maxWidth = '816px';
-  element.style.minWidth = '816px';
+  element.style.width = '800px';
+  element.style.maxWidth = '800px';
+  element.style.minWidth = '800px';
   element.style.margin = '0 auto';
   element.style.boxSizing = 'border-box';
 
   const opt = {
-    margin:       [0.3, 0.3, 0.3, 0.3],
+    margin:       [0.5, 0.4, 0.5, 0.4],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
@@ -2096,7 +2096,7 @@ function descargarProformaDirectamente() {
       scrollX: 0,
       scrollY: 0,
       x: 0,
-      windowWidth: 816
+      windowWidth: 800
     },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }

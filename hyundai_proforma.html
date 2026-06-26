@@ -128,14 +128,18 @@
   /* === REGLAS DE IMPRESIÓN === */
   @media print {
     body, html { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+    #pdf-content,
     #pdf-content {
-      width: 100% !important;
-      max-width: 100% !important;
+      width: 90% !important;
+      max-width: 90% !important;
       min-width: 0 !important;
-      padding: 0 !important;
+      margin: 0 auto !important;
+      display: block !important;
+      float: none !important;
+      position: static !important;
+      padding: 10mm 5mm !important;
       box-shadow: none !important;
       border: none !important;
-      margin: 0 auto !important;
     }
     #pdf-content table { table-layout: fixed !important; }
     .evitar-corte { page-break-inside: avoid !important; }
@@ -2101,7 +2105,7 @@ function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
   if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
 
-  // Remover cualquier position absolute/fixed y forzar block estático
+  // Forzar centrado CSS puro — sin position absolute/fixed, sin float
   element.style.position = 'static';
   element.style.float = 'none';
   element.style.display = 'block';
@@ -2111,6 +2115,7 @@ function descargarProformaDirectamente() {
   element.style.marginLeft = 'auto';
   element.style.marginRight = 'auto';
   element.style.boxSizing = 'border-box';
+  element.style.textAlign = 'left';
 
   // Remover flex del padre para que margin auto funcione
   const parent = element.parentElement;
@@ -2122,18 +2127,17 @@ function descargarProformaDirectamente() {
   }
 
   const opt = {
-    margin:       [10, 0, 10, 0], // mm — 0 laterales: el centrado lo hace CSS
+    margin:       [10, 13, 10, 13], // mm — simétricos: centrado automático
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
-      scale: 1,
+      scale: 2,
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 720,  // 190mm × 96dpi/25.4
-      windowNullSafe: true
+      windowWidth: 816
     },
-    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait', x: 13, y: 10 },
+    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
   };
 

@@ -103,30 +103,7 @@
     box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   }
 
-  /* === PDF CONTAINER FIXED — Aislamiento de impresión === */
-  .pdf-container-fixed {
-    width: 816px !important;
-    max-width: 816px !important;
-    min-width: 816px !important;
-    height: auto !important;
-    margin: 0 auto !important;
-    padding: 20px 30px !important;
-    box-sizing: border-box !important;
-    background-color: #ffffff !important;
-    font-family: Arial, sans-serif !important;
-    float: none !important;
-  }
-  .pdf-container-fixed table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    table-layout: fixed !important;
-  }
-  .pdf-container-fixed td,
-  .pdf-container-fixed th {
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    white-space: normal !important;
-  }
+  /* === EVITAR CORTE DE PÁGINA === */
   .evitar-corte {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
@@ -583,6 +560,13 @@
       <button id="btnDownloadPdf" onclick="downloadPdfFromPreview()" class="px-5 py-2.5 rounded-lg bg-hyundai text-white font-bold text-sm hover:bg-hyundai3 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>Descargar PDF Confirmado</button>
     </div>
   </div>
+</div>
+
+<!-- =========================================================
+     PLANTILLA PDF OCULTA — Captura exclusiva para html2pdf
+     ========================================================= -->
+<div id="plantilla-pdf-kibun" style="display:none; width:816px !important; font-family:Arial, sans-serif !important; background:#ffffff !important; padding:40px !important; box-sizing:border-box !important;">
+  <div id="pdf-contenido-dinamico"></div>
 </div>
 
 <!-- =========================================================
@@ -2137,23 +2121,24 @@ async function downloadPdfFromPreview() {
   btn.textContent = 'Generando PDF...';
   btn.disabled = true;
 
-  const element = document.getElementById('pdf-content');
+  // 1. Inyectar HTML en la plantilla oculta
+  const plantilla  = document.getElementById('plantilla-pdf-kibun');
+  const contenido  = document.getElementById('pdf-contenido-dinamico');
+  contenido.innerHTML = pendingPdfHtml;
 
-  // Esperar fuentes
+  // 2. Esperar fuentes e imágenes
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch(e) {}
   }
-
-  // Esperar imágenes
-  const imgs = element.querySelectorAll('img');
+  const imgs = contenido.querySelectorAll('img');
   await Promise.all(Array.from(imgs).map(img => {
     if (img.complete && img.naturalWidth > 0) return Promise.resolve();
     return new Promise(res => { img.onload = res; img.onerror = res; setTimeout(res, 3000); });
   }));
 
-  // Activar modo exportación (aislamiento de impresión)
-  element.classList.add('pdf-container-fixed');
-  element.offsetHeight;
+  // 3. Mostrar momentáneamente para que html2pdf lo lea
+  plantilla.style.display = 'block';
+  plantilla.offsetHeight;
   await new Promise(r => setTimeout(r, 100));
 
   const opt = {
@@ -2164,8 +2149,7 @@ async function downloadPdfFromPreview() {
       scale: 2,
       useCORS: true,
       scrollX: 0,
-      scrollY: 0,
-      windowWidth: 816
+      scrollY: 0
     },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
@@ -2174,13 +2158,16 @@ async function downloadPdfFromPreview() {
   let pdfOk = false;
   try {
     window.scrollTo(0, 0);
-    await html2pdf().set(opt).from(element).save();
+    await html2pdf().set(opt).from(plantilla).save();
     pdfOk = true;
   } catch(err) {
     console.error('[PDF] Error:', err);
     alert('Error al generar el PDF. Intente de nuevo.');
   } finally {
-    element.classList.remove('pdf-container-fixed');
+    // 4. Ocultar plantilla y limpiar
+    plantilla.style.display = 'none';
+    contenido.innerHTML = '';
+    pendingPdfHtml = '';
     btn.textContent = originalText;
     btn.disabled = false;
     closePdfPreview();

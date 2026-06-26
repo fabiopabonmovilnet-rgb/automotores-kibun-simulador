@@ -2101,30 +2101,57 @@ function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
   if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
 
+  // Remover cualquier position absolute/fixed y forzar block estático
+  element.style.position = 'static';
+  element.style.float = 'none';
+  element.style.display = 'block';
   element.style.width = '190mm';
   element.style.maxWidth = '190mm';
   element.style.minWidth = '190mm';
   element.style.marginLeft = 'auto';
   element.style.marginRight = 'auto';
-  element.style.display = 'block';
   element.style.boxSizing = 'border-box';
 
+  // Remover flex del padre para que margin auto funcione
+  const parent = element.parentElement;
+  const prevDisplay = parent ? parent.style.display : '';
+  const prevJustify = parent ? parent.style.justifyContent : '';
+  if (parent) {
+    parent.style.display = 'block';
+    parent.style.justifyContent = 'initial';
+  }
+
   const opt = {
-    margin:       [10, 13, 10, 13], // mm — simétricos: 190mm contenido + 13mm lado = 216mm Letter
+    margin:       [10, 0, 10, 0], // mm — 0 laterales: el centrado lo hace CSS
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
-      scale: 2,
+      scale: 1,
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 720  // 190mm × (96/25.4) ≈ 720px
+      windowWidth: 720,  // 190mm × 96dpi/25.4
+      windowNullSafe: true
     },
-    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
+    jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait', x: 13, y: 10 },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
   };
 
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(element).save().then(() => {
+    // Restaurar estilos del padre
+    if (parent) {
+      parent.style.display = prevDisplay;
+      parent.style.justifyContent = prevJustify;
+    }
+    // Restaurar estilos del elemento
+    element.style.position = '';
+    element.style.width = '';
+    element.style.maxWidth = '';
+    element.style.minWidth = '';
+    element.style.marginLeft = '';
+    element.style.marginRight = '';
+    element.style.display = '';
+  });
 }
 
 /* =============================================================

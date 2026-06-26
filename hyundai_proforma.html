@@ -109,8 +109,10 @@
     max-width: 800px !important;
     min-width: 800px !important;
     display: block !important;
-    margin: 0 !important;
-    padding: 20px !important;
+    margin: 0 auto !important;
+    padding: 10px 20px !important;
+    box-sizing: border-box !important;
+    background: white;
     float: none !important;
     position: static !important;
     left: auto !important;
@@ -142,21 +144,23 @@
     word-wrap: break-word !important;
     border-collapse: collapse !important;
   }
-  .pdf-export-mode th, .pdf-export-mode td {
-    word-break: break-word !important;
+  .pdf-export-mode table td {
+    word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
+    font-size: 11px !important;
+    padding: 4px !important;
+  }
+  .pdf-export-mode table th {
+    font-size: 11px !important;
+    padding: 4px !important;
   }
   .pdf-export-mode .pdf-bar {
     width: 100% !important;
   }
-  .pdf-export-mode .html2pdf__page-break {
-    page-break-before: always !important;
-    break-before: page !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
+  .evitar-corte {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* === PDF CONTENT INNER STYLES === */
@@ -1976,7 +1980,7 @@ function buildPDFHTML(calc, advisor) {
     + '</div>'
   ).join('');
 
-  const vehiculoHTML = '<div class="pdf-section">'
+  const vehiculoHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Vehículo · ' + v.name + '</div>'
     + (vehImg ? '<div style="text-align:center; padding:6px; background:#f8fafc;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="max-width:100%; max-height:140px; object-fit:contain;" /></div>' : '')
     + '<div class="pdf-row" style="background:#f1f5f9; font-weight:700;">'
@@ -1987,7 +1991,7 @@ function buildPDFHTML(calc, advisor) {
     + '</div>';
 
   // --- Datos del cliente ---
-  const clienteHTML = '<div class="pdf-section">'
+  const clienteHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Datos del Cliente</div>'
     + '<div class="pdf-row"><div class="pdf-cell-label">Nombre</div><div class="pdf-cell-value">' + data.name + '</div></div>'
     + '<div class="pdf-row"><div class="pdf-cell-label">Cédula / RIF</div><div class="pdf-cell-value">' + data.cedula + '</div></div>'
@@ -1998,7 +2002,7 @@ function buildPDFHTML(calc, advisor) {
     + '</div>';
 
   // --- Desglose financiero ---
-  const breakdownHTML = '<div class="pdf-section">'
+  const breakdownHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Desglose Financiero · ' + calc.plan + '</div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Subtotal (precio vehículo)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.precio) + '</div></div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Inicial del cliente (' + (getInitialPct()*100).toFixed(2) + '%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right; color:#16a34a;">- ' + fmt(calc.inicial) + '</div></div>'
@@ -2058,14 +2062,13 @@ function buildPDFHTML(calc, advisor) {
   }
   amortTable += '</tbody></table>' + moreRowsNote;
 
-  const amortHTML = '<div class="html2pdf__page-break"></div>'
-    + '<div class="pdf-section">'
+  const amortHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Tabla de Amortización (' + (isCTZ ? 'cuotas decrecientes' : 'cuota fija') + ')</div>'
     + amortTable
     + '</div>';
 
   // --- Terminos ---
-  const terminosHTML = '<div class="pdf-section">'
+  const terminosHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Términos y Condiciones</div>'
     + '<div style="font-size:7pt; line-height:1.3; color:#475569; padding:4px 6px; word-break:break-word;">'
     + '1. Esta proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
@@ -2080,7 +2083,7 @@ function buildPDFHTML(calc, advisor) {
 
   // --- Forma de pago ---
   const totalBs = (calc.totalFiscal * TASA_BCV).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const fiscalHTML = '<div class="pdf-section">'
+  const fiscalHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Forma de Pago · Desglose Fiscal</div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">Subtotal (PVP / base imponible)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.subtotalFiscal) + '</div></div>'
     + '<div class="pdf-row"><div class="pdf-cell-label" style="flex:0 0 55%;">IVA (16%)</div><div style="flex:1 1 45%; min-width:0; padding:4px 6px; font-size:8.5pt; text-align:right;">' + fmt(calc.iva) + '</div></div>'
@@ -2185,12 +2188,17 @@ async function downloadPdfFromPreview() {
   await new Promise(r => setTimeout(r, 100));
 
   const opt = {
-    margin:       10,
+    margin:       [10, 10, 10, 10],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+    html2canvas:  {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      windowWidth: 800
+    },
     jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
-    pagebreak:    { mode: ['css', 'legacy'], avoid: ['.pdf-section', 'table', 'tr'] }
+    pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', '.evitar-corte', 'img'] }
   };
 
   let pdfOk = false;

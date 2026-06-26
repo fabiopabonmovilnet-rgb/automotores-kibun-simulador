@@ -87,12 +87,12 @@
 
   /* === PDF CONTENT — Preview en pantalla === */
   #pdf-content {
-    width: 800px;
-    max-width: 800px;
-    min-width: 800px;
+    width: 816px;
+    max-width: 816px;
+    min-width: 816px;
     display: block;
     margin: 0 auto;
-    padding: 20px;
+    padding: 20px 30px;
     background: white;
     box-sizing: border-box;
     font-family: Arial, sans-serif;
@@ -103,32 +103,29 @@
     box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   }
 
-  /* === PDF EXPORT MODE — Aislamiento de impresión === */
-  .pdf-export-mode {
-    width: 800px !important;
-    max-width: 800px !important;
+  /* === PDF CONTAINER FIXED — Aislamiento de impresión === */
+  .pdf-container-fixed {
+    width: 816px !important;
+    max-width: 816px !important;
+    min-width: 816px !important;
+    height: auto !important;
     margin: 0 auto !important;
-    padding: 10px 20px !important;
-    background-color: white !important;
+    padding: 20px 30px !important;
     box-sizing: border-box !important;
+    background-color: #ffffff !important;
+    font-family: Arial, sans-serif !important;
     float: none !important;
-    position: static !important;
-    transform: none !important;
   }
-  .pdf-export-mode table {
+  .pdf-container-fixed table {
     width: 100% !important;
-    table-layout: fixed !important;
-    word-wrap: break-word !important;
     border-collapse: collapse !important;
+    table-layout: fixed !important;
   }
-  .pdf-export-mode table td,
-  .pdf-export-mode table th {
+  .pdf-container-fixed td,
+  .pdf-container-fixed th {
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
-  }
-  .pdf-export-mode .pdf-bar {
-    width: 100% !important;
   }
   .evitar-corte {
     page-break-inside: avoid !important;
@@ -2155,12 +2152,12 @@ async function downloadPdfFromPreview() {
   }));
 
   // Activar modo exportación (aislamiento de impresión)
-  element.classList.add('pdf-export-mode');
+  element.classList.add('pdf-container-fixed');
   element.offsetHeight;
   await new Promise(r => setTimeout(r, 100));
 
   const opt = {
-    margin:       0.2,
+    margin:       [0.5, 0.5, 0.5, 0.5],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
@@ -2168,10 +2165,10 @@ async function downloadPdfFromPreview() {
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 800
+      windowWidth: 816
     },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-    pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', '.evitar-corte', 'img'] }
+    pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
   };
 
   let pdfOk = false;
@@ -2183,8 +2180,7 @@ async function downloadPdfFromPreview() {
     console.error('[PDF] Error:', err);
     alert('Error al generar el PDF. Intente de nuevo.');
   } finally {
-    // Restaurar vista web normal
-    element.classList.remove('pdf-export-mode');
+    element.classList.remove('pdf-container-fixed');
     btn.textContent = originalText;
     btn.disabled = false;
     closePdfPreview();

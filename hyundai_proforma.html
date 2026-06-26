@@ -188,6 +188,43 @@
   ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
   details > summary { list-style:none; cursor:pointer; }
   details > summary::-webkit-details-marker { display:none; }
+
+  /* === MEDIA PRINT — Impresión nativa del navegador === */
+  @media print {
+    body * { visibility: hidden !important; }
+    #plantilla-pdf-kibun,
+    #plantilla-pdf-kibun * { visibility: visible !important; }
+    #plantilla-pdf-kibun {
+      display: block !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 8.5in !important;
+      height: 11in !important;
+      padding: 0.5in !important;
+      margin: 0 !important;
+      background: #ffffff !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+    }
+    #plantilla-pdf-kibun table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      table-layout: fixed !important;
+    }
+    #plantilla-pdf-kibun td,
+    #plantilla-pdf-kibun th {
+      font-size: 10px !important;
+      padding: 4px !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      white-space: normal !important;
+    }
+    #plantilla-pdf-kibun .evitar-corte {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+  }
 </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
@@ -2118,7 +2155,7 @@ function closePdfPreview() {
 async function downloadPdfFromPreview() {
   const btn = document.getElementById('btnDownloadPdf');
   const originalText = btn.textContent;
-  btn.textContent = 'Generando PDF...';
+  btn.textContent = 'Preparando impresión...';
   btn.disabled = true;
 
   const plantilla = document.getElementById('plantilla-pdf-kibun');
@@ -2141,46 +2178,23 @@ async function downloadPdfFromPreview() {
   // 3. Mostrar la plantilla para que el DOM la procese
   plantilla.style.display = 'block';
 
-  // 4. CRÍTICO: Pausa para asegurar que el navegador dibuje el HTML antes de la captura
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // 4. Micro-pausa para que el navegador pinte el DOM
+  await new Promise(resolve => setTimeout(resolve, 150));
 
-  // 5. Configuración de html2pdf
-  const opt = {
-    margin:       [0.5, 0.5, 0.5, 0.5],
-    filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  {
-      scale: 2,
-      useCORS: true,
-      scrollX: 0,
-      scrollY: 0
-    },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-    pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
-  };
+  // 5. Llamar a la impresión nativa del navegador (genera PDF desde "Guardar como PDF")
+  window.print();
 
-  // 6. Generar el PDF
-  let pdfOk = false;
-  try {
-    window.scrollTo(0, 0);
-    await html2pdf().set(opt).from(plantilla).save();
-    pdfOk = true;
-  } catch(err) {
-    console.error('[PDF] Error:', err);
-    alert('Error al generar el PDF. Intente de nuevo.');
-  } finally {
-    // 7. Ocultar plantilla y limpiar
-    plantilla.style.display = 'none';
-    contenido.innerHTML = '';
-    pendingPdfHtml = '';
-    btn.textContent = originalText;
-    btn.disabled = false;
-    closePdfPreview();
+  // 6. Ocultar plantilla y limpiar después de que el usuario cierre el diálogo de impresión
+  plantilla.style.display = 'none';
+  contenido.innerHTML = '';
+  pendingPdfHtml = '';
+  btn.textContent = originalText;
+  btn.disabled = false;
+  closePdfPreview();
 
-    const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
-    showSuccessModal(state.proformaCode, status.leadOk, pdfOk, status.leadErr);
-    window.__lastLeadStatus = null;
-  }
+  const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
+  showSuccessModal(state.proformaCode, status.leadOk, true, status.leadErr);
+  window.__lastLeadStatus = null;
 }
 
 /* =============================================================

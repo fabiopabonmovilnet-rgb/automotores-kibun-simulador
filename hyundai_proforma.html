@@ -2105,15 +2105,11 @@ function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
   if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
 
-  // Forzar centrado CSS puro — sin position absolute/fixed, sin float
-  element.style.position = 'static';
+  // Forzar centrado CSS puro
+  element.style.position = 'relative';
   element.style.float = 'none';
   element.style.display = 'block';
-  element.style.width = '190mm';
-  element.style.maxWidth = '190mm';
-  element.style.minWidth = '190mm';
-  element.style.marginLeft = 'auto';
-  element.style.marginRight = 'auto';
+  element.style.margin = '0 auto';
   element.style.boxSizing = 'border-box';
   element.style.textAlign = 'left';
 
@@ -2135,7 +2131,7 @@ function descargarProformaDirectamente() {
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 816
+      windowWidth: document.getElementById('pdf-content').scrollWidth
     },
     jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }

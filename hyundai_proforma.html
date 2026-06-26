@@ -87,20 +87,31 @@
 
   /* === PDF CONTENT — Preview en pantalla === */
   #pdf-content {
-    width: 816px;
-    max-width: 816px;
-    min-width: 816px;
-    display: block;
-    margin: 0 auto;
-    padding: 20px 30px;
-    background: white;
-    box-sizing: border-box;
+    width: 816px !important;
+    max-width: 816px !important;
+    min-width: 816px !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    background-color: #ffffff !important;
     font-family: Arial, sans-serif;
     font-size: 10pt;
     color: #0f172a;
     word-break: break-word;
     overflow-wrap: break-word;
     box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  #pdf-content table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+  #pdf-content td,
+  #pdf-content th {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    font-size: 11px !important;
+    padding: 6px !important;
   }
 
   /* === EVITAR CORTE DE PÁGINA === */
@@ -559,7 +570,7 @@
     </div>
     <div class="preview-actions">
       <button onclick="closePdfPreview()" class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition">Cancelar</button>
-      <button id="btnDownloadPdf" onclick="downloadPdfFromPreview()" class="px-5 py-2.5 rounded-lg bg-hyundai text-white font-bold text-sm hover:bg-hyundai3 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>Descargar PDF Confirmado</button>
+      <button id="btnDownloadPdf" onclick="descargarProformaDirectamente()" class="px-5 py-2.5 rounded-lg bg-hyundai text-white font-bold text-sm hover:bg-hyundai3 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>Descargar PDF Confirmado</button>
     </div>
   </div>
 </div>
@@ -2064,14 +2075,15 @@ function closePdfPreview() {
   pendingPdfHtml = '';
 }
 
-async function downloadPdfFromPreview() {
-  const btn = document.getElementById('btnDownloadPdf');
-  const originalText = btn.textContent;
-  btn.textContent = 'Generando PDF...';
-  btn.disabled = true;
-
+function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
-  if (!element) { btn.textContent = originalText; btn.disabled = false; return; }
+  if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
+
+  element.style.width = '816px';
+  element.style.maxWidth = '816px';
+  element.style.minWidth = '816px';
+  element.style.margin = '0 auto';
+  element.style.boxSizing = 'border-box';
 
   const opt = {
     margin:       [0.4, 0.4, 0.4, 0.4],
@@ -2082,29 +2094,14 @@ async function downloadPdfFromPreview() {
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
+      x: 0,
       windowWidth: 816
     },
     jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }
   };
 
-  let pdfOk = false;
-  try {
-    window.scrollTo(0, 0);
-    await html2pdf().set(opt).from(element).save();
-    pdfOk = true;
-  } catch(err) {
-    console.error('[PDF] Error:', err);
-    alert('Error al generar el PDF. Intente de nuevo.');
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-    closePdfPreview();
-
-    const status = window.__lastLeadStatus || { leadOk: false, leadErr: '' };
-    showSuccessModal(state.proformaCode, status.leadOk, pdfOk, status.leadErr);
-    window.__lastLeadStatus = null;
-  }
+  html2pdf().set(opt).from(element).save();
 }
 
 /* =============================================================

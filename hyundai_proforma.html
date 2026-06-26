@@ -191,11 +191,10 @@
 
   /* === HOJA PDF FIJA — Aislamiento para captura html2pdf === */
   .hoja-pdf-fija {
-    width: 816px !important;
-    max-width: 816px !important;
-    margin: 0 auto !important;
-    padding: 30px !important;
+    width: 100% !important;
+    max-width: none !important;
     box-sizing: border-box !important;
+    padding: 10px !important;
     background: #ffffff !important;
   }
   .hoja-pdf-fija table {
@@ -2159,11 +2158,11 @@ async function downloadPdfFromPreview() {
 
   // 4. Configuración a prueba de fallos
   const opt = {
-    margin:       [0.5, 0.5, 0.5, 0.5],
+    margin:       [0.4, 0.4, 0.4, 0.4],
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
-      scale: 2,
+      scale: 2.2,
       useCORS: true,
       scrollX: 0,
       scrollY: 0,

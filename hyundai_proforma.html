@@ -90,10 +90,14 @@
   /* === PDF CONTENT — Preview en pantalla === */
   * { box-sizing: border-box !important; }
   #pdf-content {
-    width: 100% !important;
-    max-width: 800px !important;
-    margin: 0 auto !important;
-    padding: 20px !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    min-width: 190mm !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    display: block !important;
+    float: none !important;
+    padding: 10mm 8mm !important;
     background-color: #ffffff !important;
     font-family: Arial, sans-serif;
     font-size: 10pt;
@@ -123,13 +127,15 @@
 
   /* === REGLAS DE IMPRESIÓN === */
   @media print {
-    body { margin: 0 !important; padding: 0 !important; }
+    body, html { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
     #pdf-content {
       width: 100% !important;
       max-width: 100% !important;
+      min-width: 0 !important;
       padding: 0 !important;
       box-shadow: none !important;
       border: none !important;
+      margin: 0 auto !important;
     }
     #pdf-content table { table-layout: fixed !important; }
     .evitar-corte { page-break-inside: avoid !important; }
@@ -2095,13 +2101,16 @@ function descargarProformaDirectamente() {
   const element = document.getElementById('pdf-content');
   if (!element) { console.error('Contenedor de la proforma no encontrado.'); return; }
 
-  element.style.maxWidth = '800px';
-  element.style.width = '800px';
-  element.style.margin = '0 auto';
+  element.style.width = '190mm';
+  element.style.maxWidth = '190mm';
+  element.style.minWidth = '190mm';
+  element.style.marginLeft = 'auto';
+  element.style.marginRight = 'auto';
+  element.style.display = 'block';
   element.style.boxSizing = 'border-box';
 
   const opt = {
-    margin:       [10, 10, 10, 10], // mm — simétricos,Letter = 215.9mm ancho
+    margin:       [10, 13, 10, 13], // mm — simétricos: 190mm contenido + 13mm lado = 216mm Letter
     filename:     'Proforma_' + state.proformaCode + '_' + state.selectedVehicle.id + '.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
@@ -2109,7 +2118,7 @@ function descargarProformaDirectamente() {
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 816  // Letter = 8.5in × 96 DPI = 816px
+      windowWidth: 720  // 190mm × (96/25.4) ≈ 720px
     },
     jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
     pagebreak:    { mode: ['css', 'legacy'], avoid: ['tr', 'table', '.evitar-corte'] }

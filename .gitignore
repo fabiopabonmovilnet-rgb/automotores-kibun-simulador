@@ -1,0 +1,15 @@
+﻿# Archivos generados
+*.pdf
+*.tmp
+*.bak
+~$*
+# Credenciales locales (NUNCA subir al repo)
+config.js
+# Netlify (directorio de deploy)
+.netlify/
+# Sistema
+Thumbs.db
+.DS_Store
+# IDE
+.vscode/
+.idea/

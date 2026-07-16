@@ -1,0 +1,55 @@
+﻿{
+    "fields":  [
+                   {
+                       "name":  "Cliente",
+                       "type":  "singleLineText"
+                   },
+                   {
+                       "name":  "Cedula",
+                       "type":  "singleLineText"
+                   },
+                   {
+                       "name":  "Telefono Cliente",
+                       "type":  "phoneNumber"
+                   },
+                   {
+                       "name":  "Vehiculo Interesado",
+                       "type":  "singleLineText"
+                   },
+                   {
+                       "name":  "Asesor Asignado",
+                       "type":  "singleLineText"
+                   },
+                   {
+                       "name":  "Plan Elegido",
+                       "type":  "singleLineText"
+                   },
+                   {
+                       "name":  "Monto Inicial",
+                       "options":  {
+                                       "precision":  2
+                                   },
+                       "type":  "number"
+                   },
+                   {
+                       "name":  "Cuota Mensual",
+                       "options":  {
+                                       "precision":  2
+                                   },
+                       "type":  "number"
+                   },
+                   {
+                       "name":  "Fecha",
+                       "options":  {
+                                       "timeZone":  "utc",
+                                       "dateFormat":  {
+                                                          "name":  "iso"
+                                                      },
+                                       "timeFormat":  {
+                                                          "name":  "24hour"
+                                                      }
+                                   },
+                       "type":  "dateTime"
+                   }
+               ]
+}

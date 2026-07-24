@@ -677,13 +677,13 @@ const configuracionPrecios = {
 };
 
 // Categorías del catálogo (orden importa: aparecen en la barra de filtros)
-const CATEGORIAS = ['Todos', 'Hatchback', 'Sedan', 'SUV Premium'];
+const CATEGORIAS = ['Todos', 'Hatchback', 'Sedán', 'SUV / Premium'];
 
 // Mapeo categoría -> modelos (los nombres deben coincidir EXACTO con `configuracionPrecios`)
 const mapeoCategorias = {
   'Hatchback':   ['Grand i10 GL M/T', 'Grand i10 GL A/T', 'Grand i10 GLS A/T'],
-  'Sedan':       ['Grand i10 Sedán A/T', 'Accent 1.5L A/T', 'Elantra 2.0L A/T'],
-  'SUV Premium': ['Creta 1.5L A/T', 'Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX', 'Palisade 3.8L A/T AWD']
+  'Sedán':       ['Grand i10 Sedán A/T', 'Accent 1.5L A/T', 'Elantra 2.0L A/T'],
+  'SUV / Premium': ['Creta 1.5L A/T', 'Tucson 2.0L A/T 2WD GLS', 'Tucson 2.0L A/T 4WD GLX', 'Palisade 3.8L A/T AWD']
 };
 
 // Alias de nombres viejos (Airtable) -> nombre canónico (configuracionPrecios)
@@ -1397,6 +1397,11 @@ function renderVehicleGrid() {
     return;
   }
   emptyMsg.classList.add('hidden');
+  filtered.sort((a, b) => {
+    const priceA = Number(a.pvp) || Number(a.price) || 0;
+    const priceB = Number(b.pvp) || Number(b.price) || 0;
+    return priceA - priceB;
+  });
   // Fallback SVG embebido (data URI) — siempre carga, sin dependencia de red
   const FALLBACK_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'>

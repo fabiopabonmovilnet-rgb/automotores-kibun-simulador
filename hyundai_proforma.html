@@ -472,6 +472,11 @@
             <input id="clientEmail" type="email" required placeholder="cliente@correo.com"
                    class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:border-hyundai2 focus:ring-2 focus:ring-hyundai2/20 focus:outline-none" />
           </div>
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-slate-600 uppercase">Dirección *</label>
+            <input id="clientAddress" type="text" required placeholder="Av. Urdaneta N° 49-29, Mérida"
+                   class="mt-1 w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:border-hyundai2 focus:ring-2 focus:ring-hyundai2/20 focus:outline-none" />
+          </div>
         </div>
 
         <h3 class="font-bold text-hyundai border-b border-slate-100 pb-2 pt-4">Resumen del plan seleccionado</h3>
@@ -659,16 +664,16 @@ const PROVINCIAL = {
 // NO se consulta Airtable para estos valores. Se define localmente para evitar
 // problemas de CORS/403 y para mantener estable la proforma aunque Airtable cambie.
 const configuracionPrecios = {
-  'Grand i10 GL M/T':        { pvp: 15941.51, iva: 2550.64, igtf:  478.25, gastos: 1669.64 },
-  'Grand i10 GL A/T':        { pvp: 18384.12, iva: 2941.46, igtf:  551.52, gastos: 1522.90 },
-  'Grand i10 GLS A/T':       { pvp: 19900.00, iva: 3184.00, igtf:  597.00, gastos: 1586.50 },
-  'Grand i10 Sedán A/T':     { pvp: 20715.00, iva: 3314.40, igtf:  621.45, gastos: 1610.95 },
-  'Accent 1.5L A/T':         { pvp: 25074.58, iva: 4011.93, igtf:  752.24, gastos: 2191.75 },
-  'Elantra 2.0L A/T':        { pvp: 32923.00, iva: 5267.68, igtf:  987.69, gastos: 2441.19 },
-  'Creta 1.5L A/T':          { pvp: 31030.17, iva: 4964.83, igtf:  930.91, gastos: 2384.44 },
-  'Tucson 2.0L A/T 2WD GLS': { pvp: 39900.00, iva: 6384.00, igtf: 1197.00, gastos: 2649.00 },
-  'Tucson 2.0L A/T 4WD GLX': { pvp: 47600.00, iva: 7616.00, igtf: 1428.00, gastos: 2881.50 },
-  'Palisade 3.8L A/T AWD':   { pvp:100500.00, iva:16080.00, igtf: 3015.00, gastos: 4468.50 }
+  'Grand i10 GL M/T':        { pvp: 16107.51, iva: 2577.12, igtf:  483.21, gastos: 1472.71, total: 20640.04 },
+  'Grand i10 GL A/T':        { pvp: 18384.12, iva: 2941.46, igtf:  551.52, gastos: 1522.90, total: 23400.00 },
+  'Grand i10 GLS A/T':       { pvp: 19900.00, iva: 3184.00, igtf:  597.00, gastos: 1586.50, total: 25267.50 },
+  'Grand i10 Sedán A/T':     { pvp: 20715.00, iva: 3314.40, igtf:  621.45, gastos: 1610.95, total: 26261.80 },
+  'Accent 1.5L A/T':         { pvp: 25074.58, iva: 4011.93, igtf:  752.24, gastos: 2191.75, total: 32030.50 },
+  'Elantra 2.0L A/T':        { pvp: 32923.00, iva: 5267.68, igtf:  987.69, gastos: 2441.19, total: 41619.56 },
+  'Creta 1.5L A/T':          { pvp: 31030.17, iva: 4964.83, igtf:  930.91, gastos: 2384.45, total: 39310.35 },
+  'Tucson 2.0L A/T 2WD GLS': { pvp: 39900.00, iva: 6384.00, igtf: 1197.00, gastos: 2649.00, total: 50130.00 },
+  'Tucson 2.0L A/T 4WD GLX': { pvp: 47600.00, iva: 7616.00, igtf: 1428.00, gastos: 2881.50, total: 59525.50 },
+  'Palisade 3.8L A/T AWD':   { pvp:100500.00, iva:16080.00, igtf: 3015.00, gastos: 4468.50, total:124063.50 }
 };
 
 // Categorías del catálogo (orden importa: aparecen en la barra de filtros)
@@ -841,12 +846,13 @@ function getDefaultColor(modelName) {
    - `pvp`    = Precio base del vehículo (sin impuestos)
    - `gastos` = Trámites y Gastos (valor fijo del modelo)
    - `price`  = alias de `pvp` para compatibilidad con el resto del código
+   - `total`  = Total a pagar (PVP + IVA + IGTF + Gastos)
    - `category` = categoría a la que pertenece (Hatchback / Sedán / SUV)
 */
 const backupData = [
   {
     id: 'grand-i10-gl-mt', name: 'Grand i10 GL M/T',
-    pvp: 15941.51, gastos: 1669.64, price: 15941.51,
+    pvp: 16107.51, gastos: 1472.71, price: 16107.51, total: 20640.04,
     category: 'Hatchback',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
@@ -862,7 +868,7 @@ const backupData = [
   },
 {
       id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T',
-      pvp: 18384.12, gastos: 1522.90, price: 18384.12,
+      pvp: 18384.12, gastos: 1522.90, price: 18384.12, total: 23400.00,
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3193cb0046aaedb917c144_69823fe186892428b7a8fab3_Grandi10-Hatchback-GL-Plata_.webp',
       specs: {
@@ -879,7 +885,7 @@ const backupData = [
     },
 {
       id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T',
-      pvp: 19900.00, gastos: 1586.50, price: 19900.00,
+      pvp: 19900.00, gastos: 1586.50, price: 19900.00, total: 25267.50,
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/696544b630bc623e59fcb862_Grandi10-Hatchback-GLS-rojo.png',
       specs: {
@@ -896,7 +902,7 @@ const backupData = [
     },
 {
       id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T',
-      pvp: 20715.00, gastos: 1610.95, price: 20715.00,
+      pvp: 20715.00, gastos: 1610.95, price: 20715.00, total: 26261.80,
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/695d6ee0057d4f637c28595b_Grandi10%20sedan%20fondo%20transparente.png',
       specs: {
@@ -913,7 +919,7 @@ const backupData = [
     },
 {
       id: 'accent-15-at', name: 'Accent 1.5L A/T',
-      pvp: 25074.58, gastos: 2191.75, price: 25074.58,
+      pvp: 25074.58, gastos: 2191.75, price: 25074.58, total: 32030.50,
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/69d444234c01074f6c41678a_Accent-blanco.png',
       specs: {
@@ -930,7 +936,7 @@ const backupData = [
     },
 {
       id: 'elantra-20-at', name: 'Elantra 2.0L A/T',
-      pvp: 32923.00, gastos: 2441.19, price: 32923.00,
+      pvp: 32923.00, gastos: 2441.19, price: 32923.00, total: 41619.56,
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3194e2f018177d8ff5589a_698561c627e39b93b4031662_Elantra-rojo_.webp',
       specs: {
@@ -947,7 +953,7 @@ const backupData = [
     },
 {
       id: 'creta-15-at', name: 'Creta 1.5L A/T',
-      pvp: 31030.17, gastos: 2384.44, price: 31030.17,
+      pvp: 31030.17, gastos: 2384.45, price: 31030.17, total: 39310.35,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/699dc30fedebb4b0d6d72a19_Creta%20Blanco_.png',
       specs: {
@@ -965,7 +971,7 @@ const backupData = [
     },
 {
       id: 'tucson-2wd-gls', name: 'Tucson 2.0L A/T 2WD GLS',
-      pvp: 39900.00, gastos: 2649.00, price: 39900.00,
+      pvp: 39900.00, gastos: 2649.00, price: 39900.00, total: 50130.00,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3194cf8148fdae01c4db46_69651ebc37abd4c7b56c5c58_Tucson-premium-Azul%20_.webp',
       specs: {
@@ -983,7 +989,7 @@ const backupData = [
     },
 {
       id: 'palisade-38-awd', name: 'Palisade 3.8L A/T AWD',
-      pvp: 100500.00, gastos: 4468.50, price: 100500.00,
+      pvp: 100500.00, gastos: 4468.50, price: 100500.00, total: 124063.50,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3195076c7556447bb5bb32_695f0af617714685f4d6adc9_Palisade-rojo_.webp',
       specs: {
@@ -1001,7 +1007,7 @@ const backupData = [
     },
 {
       id: 'tucson-4wd-glx', name: 'Tucson 2.0L A/T 4WD GLX',
-      pvp: 47600.00, gastos: 2881.50, price: 47600.00,
+      pvp: 47600.00, gastos: 2881.50, price: 47600.00, total: 59525.50,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3194da0046aaedb9182e5a_69823c97ec17a7e03309284f_Tucson-blanco_.webp',
       specs: {
@@ -1067,9 +1073,10 @@ function getInitialPct() {
 // Dado un PVP, calcula IVA 16% e IGTF 3%. Los "gastos" son fijos por modelo
 // (provienen de configuracionPrecios), por lo que se reciben como parámetro.
 // Fórmula: Total a Pagar = PVP + IVA + IGTF + Trámites y Gastos
-function calcularDesglose(pvpBase, gastos = 0) {
-  const iva    = +(pvpBase * 0.16).toFixed(2);
-  const igtf   = +(pvpBase * 0.03).toFixed(2);
+// Desglose fiscal: usa valores fijos si están disponibles, si no calcula
+function calcularDesglose(pvpBase, gastos = 0, ivaFijo = 0, igtfFijo = 0) {
+  const iva    = ivaFijo  || +(pvpBase * 0.16).toFixed(2);
+  const igtf   = igtfFijo || +(pvpBase * 0.03).toFixed(2);
   const gastosRed = +gastos.toFixed(2);
   return {
     iva,
@@ -1083,7 +1090,7 @@ function calcularDesglose(pvpBase, gastos = 0) {
 function obtenerDesglose(nombreModelo) {
   const cfg = configuracionPrecios[nombreModelo];
   if (!cfg) return null;
-  return { pvp: cfg.pvp, ...calcularDesglose(cfg.pvp, cfg.gastos) };
+  return { pvp: cfg.pvp, ...calcularDesglose(cfg.pvp, cfg.gastos, cfg.iva, cfg.igtf) };
 }
 
 // Normaliza un nombre para match robusto: minúsculas, sin acentos, sin espacios/guiones/puntos
@@ -1863,6 +1870,17 @@ async function fetchVehiculos() {
       const gastos = cfgFinal ? cfgFinal.gastos
                    : staticMatch ? Number(staticMatch.gastos) || 0
                    : 0;
+      // Valores fiscales fijos desde Airtable (columnas PVP, IVA_16, IGTF_3, Tramites_Gastos, Total)
+      const atPvp      = Number(f.PVP) || 0;
+      const atIva      = Number(f.IVA_16) || 0;
+      const atIgtf     = Number(f.IGTF_3) || 0;
+      const atGastos   = Number(f['Tramites_Gastos']) || 0;
+      const atTotal    = Number(f.Total) || 0;
+      const finalPvp   = atPvp || pvp;
+      const finalIva   = atIva || (cfgFinal ? cfgFinal.iva : 0);
+      const finalIgtf  = atIgtf || (cfgFinal ? cfgFinal.igtf : 0);
+      const finalGastos = atGastos || gastos;
+      const finalTotal = atTotal || (cfgFinal ? cfgFinal.total : 0);
       const category = staticMatch ? (staticMatch.category || obtenerCategoria(canonico))
                       : obtenerCategoria(canonico);
 
@@ -1913,9 +1931,12 @@ async function fetchVehiculos() {
       liveVehicles.push({
         id: staticMatch ? staticMatch.id : 'at-' + r.id,
         name: canonico,
-        pvp: pvp,
-        gastos: gastos,
-        price: pvp,
+        pvp: finalPvp,
+        iva: finalIva,
+        igtf: finalIgtf,
+        gastos: finalGastos,
+        total: finalTotal,
+        price: finalPvp,
         category: category,
         imageUrl: imageUrl,
         colorImages: colorImagesAT,
@@ -1994,7 +2015,14 @@ async function saveLead(payload) {
 // Schema management moved to serverless function (ensureLeadsSchema runs server-side)
 // Lead backup (localStorage) removed — proxy handles errors and retries internally
 
-// === AUTO-CREAR COLUMNAS DE COLOR EN LA TABLA Vehiculos ===
+// === AUTO-CREAR COLUMNAS EN LA TABLA Vehiculos ===
+var VEHICULOS_PRICING_FIELDS = [
+  { name: 'PVP',            type: 'Number', options: { precision: 2 } },
+  { name: 'IVA_16',         type: 'Number', options: { precision: 2 } },
+  { name: 'IGTF_3',         type: 'Number', options: { precision: 2 } },
+  { name: 'Tramites_Gastos', type: 'Number', options: { precision: 2 } },
+  { name: 'Total',          type: 'Number', options: { precision: 2 } }
+];
 var VEHICULOS_COLOR_FIELDS = COLOR_NAMES.map(function(cName) {
   var info = VEHICLE_COLORS.find(function(c) { return c.name === cName; });
   return { name: info ? info.field : ('Color_' + cName), type: 'URL' };
@@ -2017,20 +2045,20 @@ async function ensureVehiculosSchema() {
       return;
     }
     var existingFields = new Set((vehTable.fields || []).map(function(f) { return f.name; }));
-    var missing = VEHICULOS_COLOR_FIELDS.filter(function(f) { return !existingFields.has(f.name); });
-    if (missing.length === 0) {
-      console.info('%c[ensureVehiculosSchema] OK columnas de color ya existen', 'color:#10b981;font-weight:bold;');
+    var allMissing = VEHICULOS_PRICING_FIELDS.concat(VEHICULOS_COLOR_FIELDS).filter(function(f) { return !existingFields.has(f.name); });
+    if (allMissing.length === 0) {
+      console.info('%c[ensureVehiculosSchema] OK columnas ya existen', 'color:#10b981;font-weight:bold;');
       return;
     }
     var patchRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables/' + vehTable.id, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: missing })
+      body: JSON.stringify({ fields: allMissing })
     });
     if (patchRes.ok) {
-      console.info('%c[ensureVehiculosSchema] OK columnas creadas: ' + missing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
+      console.info('%c[ensureVehiculosSchema] OK columnas creadas: ' + allMissing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
     } else {
-      console.warn('[ensureVehiculosSchema] PATCH respondio ' + patchRes.status + '. Crea manualmente:', missing);
+      console.warn('[ensureVehiculosSchema] PATCH respondio ' + patchRes.status + '. Crea manualmente:', allMissing);
     }
   } catch (err) {
     console.warn('[ensureVehiculosSchema] Error:', err);
@@ -2046,7 +2074,8 @@ function buildPDFHTML(calc, advisor) {
   const validUntil = new Date(Date.now() + 15*24*60*60*1000).toLocaleDateString('es-VE', { year:'numeric', month:'long', day:'numeric', timeZone: 'America/Caracas' });
   const f = document.getElementById('leadForm');
   const data = {
-    name: f.clientName.value, cedula: f.clientCedula.value, phone: f.clientPhone.value, email: f.clientEmail.value
+    name: f.clientName.value, cedula: f.clientCedula.value, phone: f.clientPhone.value, email: f.clientEmail.value,
+    address: f.clientAddress.value || ''
   };
 
   const colorName = state.selectedColor || getDefaultColor(v.name);
@@ -2124,6 +2153,7 @@ function buildPDFHTML(calc, advisor) {
     + pdf4col('Cédula / RIF', data.cedula)
     + pdf4col('Teléfono', data.phone)
     + pdf4col('Correo', data.email)
+    + pdf4col('Dirección', data.address || '—')
     + pdf4col('Asesor', advisor.nombre || '—')
     + pdf4col('Contacto asesor', (advisor.correo || '') + (advisor.telefono ? ' · ' + advisor.telefono : ''))
     + '</div>'
@@ -2148,17 +2178,40 @@ function buildPDFHTML(calc, advisor) {
     + '</div>'
     + '</div>';
 
-  // --- Terminos ---
+  // --- Carta de presentación a la entidad financiera ---
+  const planName = calc.tipo || 'Banco Provincial';
+  const cartaHTML = '<div class="pdf-section evitar-corte">'
+    + '<div class="pdf-bar">Carta de Presentación — ' + planName + '</div>'
+    + '<div style="font-size:7.5pt; line-height:1.4; color:#334155; padding:6px 8px;">'
+    + '<p style="margin-bottom:6px;">A quien corresponda:</p>'
+    + '<p style="margin-bottom:6px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', '
+    + 'con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento '
+    + 'del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, '
+    + 'quien ha manifestado su interés en adquirir el vehículo <b>' + v.name + '</b> '
+    + 'por un valor total de <b>' + fmt(calc.totalFiscal) + '</b> USD, bajo las condiciones del plan <b>' + (calc.plan || planName) + '</b>.</p>'
+    + '<p style="margin-bottom:6px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
+    + '<p>Atentamente,</p>'
+    + '</div>'
+    + '</div>';
+
+  // --- Sello institucional ---
+  const selloHTML = '<div style="text-align:center; margin:6px 0; padding:4px;">'
+    + '<div style="display:inline-block; border:2px solid #002C5F; border-radius:8px; padding:8px 16px; opacity:0.85;">'
+    + '<div style="font-size:9pt; font-weight:900; color:#002C5F; letter-spacing:1px;">AUTOMOTORES KIBUN C.A.</div>'
+    + '<div style="font-size:6.5pt; color:#475569;">RIF ' + EMPRESA.rif + '</div>'
+    + '<div style="font-size:6.5pt; color:#475569;">' + EMPRESA.direccion + '</div>'
+    + '<div style="font-size:6.5pt; color:#475569;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
+    + '</div>'
+    + '</div>';
+
+  // --- Terminos y Condiciones (solo puntos 1, 3, 4, 5 — enfoque en Banco Provincial) ---
   const terminosHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Términos y Condiciones</div>'
     + '<div style="font-size:7pt; line-height:1.3; color:#475569; padding:4px 6px; word-break:break-word;">'
     + '1. Esta proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
-    + '2. El monto a financiar incluye comisión flat y gastos aplicables según el plan seleccionado. No incluye seguro.<br>'
-    + '3. La aprobación final del crédito está sujeta al análisis de la entidad financiera o programa seleccionado.<br>'
-    + '4. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones del mercado.<br>'
-    + '5. Los precios están expresados exclusivamente en dólares americanos (USD).<br>'
-    + '6. En el plan CTZ las cuotas son decrecientes (alemán). En Provincial, Pivca y Arca las cuotas son fijas (francés).<br>'
-    + '7. Automotores Kibun Mérida se reserva el derecho de actualizar precios y condiciones sin previo aviso.'
+    + '3. La aprobación final del crédito está sujeta al análisis y evaluación crediticia de ' + planName + '.<br>'
+    + '4. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones vigentes de ' + planName + '.<br>'
+    + '5. Los precios están expresados exclusivamente en dólares americanos (USD).'
     + '</div>'
     + '</div>';
 
@@ -2178,6 +2231,8 @@ function buildPDFHTML(calc, advisor) {
     + clienteHTML
     + vehiculoHTML
     + costosHTML
+    + cartaHTML
+    + selloHTML
     + terminosHTML
     + firmasHTML;
 }
@@ -2366,6 +2421,8 @@ function wireEvents() {
       'Cliente':              (f.clientName.value || '').trim(),
       'Cedula':               (f.clientCedula.value || '').trim(),
       'Telefono Cliente':     (f.clientPhone.value || '').trim(),
+      'Direccion':            (f.clientAddress.value || '').trim(),
+      'Correo Cliente':       (f.clientEmail.value || '').trim(),
       'Vehiculo Interesado':  state.selectedVehicle.name,
       'Color':                state.selectedColor || getDefaultColor(state.selectedVehicle.name),
       'Asesor Asignado':      opt.text,

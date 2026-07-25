@@ -401,6 +401,8 @@
           <div class="gradient-h text-white p-4">
             <p class="text-xs uppercase tracking-wider opacity-80">Resumen en vivo</p>
             <h3 class="text-lg font-bold" id="summaryPlanName">Banco Provincial 48m</h3>
+            <p class="text-sm mt-1 opacity-90">Vehículo: <span id="summaryVehicleName" class="font-semibold">—</span></p>
+            <p class="text-xl font-extrabold mt-0.5" id="summaryVehiclePrice">$0.00</p>
           </div>
           <div class="p-5 space-y-3 text-sm">
             <div class="flex justify-between"><span class="text-slate-500">Base imponible</span><span class="font-semibold" id="sumPrice">$0.00</span></div>
@@ -1702,6 +1704,9 @@ function updateLiveSummary() {
   if (!calc) return;
 
   document.getElementById('summaryPlanName').textContent = getCurrentPlanName();
+  const v = state.selectedVehicle;
+  document.getElementById('summaryVehicleName').textContent = v ? v.name : '—';
+  document.getElementById('summaryVehiclePrice').textContent = v ? fmt(calc.precio) : '$0.00';
   document.getElementById('sumPrice').textContent    = fmt(calc.precio);
   document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
   document.getElementById('sumInitPct').textContent  = (getInitialPct()*100).toFixed(1);

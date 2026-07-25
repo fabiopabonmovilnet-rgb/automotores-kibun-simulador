@@ -1724,7 +1724,6 @@ function updateLiveSummary() {
   document.getElementById('sumTerm').textContent     = calc.plazo + ' meses';
   document.getElementById('sumCuota').textContent     = fmt(calc.cuotaMensual);
 
-  const v = state.selectedVehicle;
   const equiv = state.initialMode === 'pct' ? (v.price * state.initialValue / 100) : state.initialValue;
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();

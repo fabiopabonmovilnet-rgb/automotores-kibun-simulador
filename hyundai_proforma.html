@@ -187,13 +187,13 @@
   #pdf-content .pdf-section {
     page-break-inside: avoid;
     break-inside: avoid;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
   #pdf-content .pdf-bar {
     background: #002C5F;
     color: #fff;
-    padding: 4px 8px;
-    font-size: 9px;
+    padding: 3px 6px;
+    font-size: 8px;
     font-weight: 700;
     letter-spacing: 0.3px;
   }
@@ -2095,24 +2095,24 @@ function buildPDFHTML(calc, advisor) {
   const vehImg = getColorImageUrl(v.name, colorName) || v.imageUrl || '';
 
   // --- Header ---
-  const headerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:4px;">'
+  const headerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:2px;">'
     + '<div style="display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0;">'
-    +   '<div style="width:36px; height:36px; min-width:36px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16pt; border-radius:6px;">K</div>'
-    +   '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" style="width:44px; height:20px; min-width:44px;">'
+    +   '<div style="width:32px; height:32px; min-width:32px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14pt; border-radius:5px;">K</div>'
+    +   '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" style="width:38px; height:17px; min-width:38px;">'
     +     '<ellipse cx="100" cy="40" rx="95" ry="34" fill="none" stroke="#002C5F" stroke-width="5"/>'
     +     '<text x="100" y="58" text-anchor="middle" font-family="Arial Black, Helvetica, sans-serif" font-size="50" font-weight="900" font-style="italic" fill="#002C5F">H</text>'
     +   '</svg>'
     +   '<div style="flex:1 1 auto; min-width:0; overflow:hidden;">'
-    +     '<div style="color:#002C5F; font-size:11pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
-    +     '<div style="color:#475569; font-size:7pt; line-height:1.2;">Concesionario Oficial Hyundai · Mérida</div>'
-    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
-    +     '<div style="color:#64748b; font-size:6.5pt; line-height:1.2;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
+    +     '<div style="color:#002C5F; font-size:10pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
+    +     '<div style="color:#475569; font-size:6.5pt; line-height:1.15;">Concesionario Oficial Hyundai · Mérida</div>'
+    +     '<div style="color:#64748b; font-size:6pt; line-height:1.15;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
+    +     '<div style="color:#64748b; font-size:6pt; line-height:1.15;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
     +   '</div>'
     + '</div>'
     + '<div style="text-align:right; flex:0 0 auto; min-width:0;">'
-    +   '<div style="color:#002C5F; font-size:14pt; font-weight:800; line-height:1;">PROFORMA</div>'
-    +   '<div style="color:#475569; font-size:7pt; margin-top:1px;"><b>Fecha:</b> ' + today + '</div>'
-    +   '<div style="color:#475569; font-size:7pt;"><b>Válida:</b> ' + validUntil + '</div>'
+    +   '<div style="color:#002C5F; font-size:13pt; font-weight:800; line-height:1;">PROFORMA</div>'
+    +   '<div style="color:#475569; font-size:6.5pt; margin-top:1px;"><b>Fecha:</b> ' + today + '</div>'
+    +   '<div style="color:#475569; font-size:6.5pt;"><b>Válida:</b> ' + validUntil + '</div>'
     + '</div>'
   + '</div>';
 
@@ -2122,16 +2122,16 @@ function buildPDFHTML(calc, advisor) {
     let rows = '';
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
-      rows += '<div style="display:flex; gap:4px; padding:2px 4px; ' + (i % 2 === 0 ? 'background:#f8fafc;' : '') + '">'
-        + '<span style="flex:0 0 100px; font-size:6.5pt; font-weight:600; color:#475569;">' + e[0].charAt(0).toUpperCase()+e[0].slice(1) + ':</span>'
-        + '<span style="flex:1; font-size:6.5pt; color:#334155; word-break:break-word;">' + e[1] + '</span>'
+      rows += '<div style="display:flex; gap:3px; padding:1px 4px; ' + (i % 2 === 0 ? 'background:#f8fafc;' : '') + '">'
+        + '<span style="flex:0 0 90px; font-size:6pt; font-weight:600; color:#475569;">' + e[0].charAt(0).toUpperCase()+e[0].slice(1) + ':</span>'
+        + '<span style="flex:1; font-size:6pt; color:#334155; word-break:break-word;">' + e[1] + '</span>'
         + '</div>';
     }
     return rows;
   }
 
   const vehThumb = vehImg
-    ? '<div style="text-align:center; padding:4px 0;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="width:120px; height:auto; max-height:70px; object-fit:contain; border-radius:4px; border:1px solid #e2e8f0;" /></div>'
+    ? '<div style="text-align:center; padding:2px 0;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="width:100px; height:auto; max-height:55px; object-fit:contain; border-radius:3px; border:1px solid #e2e8f0;" /></div>'
     : '';
   const vehiculoHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Vehículo · ' + v.name + '</div>'
@@ -2140,23 +2140,21 @@ function buildPDFHTML(calc, advisor) {
     + '<div style="display:flex; flex-wrap:wrap;">'
     + pdfField('Modelo', v.name)
     + pdfField('Color', state.selectedColor || getDefaultColor(v.name))
-    + pdfField('Precio Base', fmt(v.price))
-    + pdfField('Total Final', fmt(calc.totalFiscal))
     + '</div>'
     + '</div>'
     + '<div style="padding:0 4px 4px;">' + pdfSpecsGrid(v.specs) + '</div>'
     + '</div>';
 
-  // --- Datos del cliente (2 columnas verticales, flujo natural) ---
+  // --- Datos del cliente (4 columnas limpias) ---
   function pdfField(label, val) {
-    return '<div style="flex:1 1 48%; min-width:48%; padding:3px 5px; box-sizing:border-box;">'
-      + '<span style="font-size:7pt; font-weight:600; color:#475569; display:block;">' + label + '</span>'
-      + '<span style="font-size:7.5pt; color:#0f172a; display:block; word-break:break-word;">' + (val || '—') + '</span>'
+    return '<div style="flex:1 1 23%; min-width:23%; padding:2px 4px; box-sizing:border-box;">'
+      + '<span style="font-size:6.5pt; font-weight:600; color:#475569; display:block;">' + label + '</span>'
+      + '<span style="font-size:7pt; color:#0f172a; display:block; word-break:break-word;">' + (val || '—') + '</span>'
       + '</div>';
   }
   const clienteHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Datos del Cliente</div>'
-    + '<div style="display:flex; flex-wrap:wrap; padding:2px 0;">'
+    + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
     + pdfField('Nombre', data.name)
     + pdfField('Cédula / RIF', data.cedula)
     + pdfField('Teléfono', data.phone)
@@ -2167,23 +2165,23 @@ function buildPDFHTML(calc, advisor) {
     + '</div>'
     + '</div>';
 
-  // --- Estructura de Costos (vertical, 2 columnas por fila) ---
+  // --- Estructura de Costos (4 columnas simétricas) ---
   const costosHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Estructura de Costos</div>'
-    + '<div style="padding:2px 0;">'
+    + '<div style="padding:1px 0;">'
     + '<div style="display:flex; flex-wrap:wrap;">'
     + pdfField('Precio Base Imponible', fmt(calc.subtotalFiscal))
     + pdfField('I.V.A. (16%)', fmt(calc.iva))
     + pdfField('I.G.T.F. (3%)', fmt(calc.igtf))
     + pdfField('Trámites y Gastos', fmt(calc.gastos))
     + '</div>'
-    + '<div style="background:#002C5F; color:#fff; font-weight:700; padding:4px 8px; display:flex; justify-content:space-between; align-items:center; margin:3px 4px 0; border-radius:3px;">'
-    +   '<span style="font-size:8pt;">TOTAL A PAGAR (USD)</span>'
-    +   '<span style="font-size:11pt;">' + fmt(calc.totalFiscal) + '</span>'
+    + '<div style="background:#002C5F; color:#fff; font-weight:700; padding:3px 6px; display:flex; justify-content:space-between; align-items:center; margin:2px 4px 0; border-radius:3px;">'
+    +   '<span style="font-size:7.5pt;">TOTAL A PAGAR (USD)</span>'
+    +   '<span style="font-size:10pt;">' + fmt(calc.totalFiscal) + '</span>'
     + '</div>'
-    + '<div style="margin-top:3px; padding:3px 6px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:7pt; color:#0f172a;">'
-    +   '<b style="color:#002C5F;">Cuenta para pago en USD:</b><br>'
-    +   '• Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
+    + '<div style="margin-top:2px; padding:2px 5px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:6.5pt; color:#0f172a;">'
+    +   '<b style="color:#002C5F;">Cuenta para pago en USD:</b> '
+    +   'Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
     + '</div>'
     + '</div>'
     + '</div>';
@@ -2194,44 +2192,44 @@ function buildPDFHTML(calc, advisor) {
   const salutation = planEntityMap[planName] || 'A quien corresponda';
   const cartaHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">Carta de Presentación — ' + planName + '</div>'
-    + '<div style="font-size:7.5pt; line-height:1.4; color:#334155; padding:6px 8px;">'
-    + '<p style="margin-bottom:6px;"><b>' + salutation + ':</b></p>'
-    + '<p style="margin-bottom:6px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', '
+    + '<div style="font-size:7pt; line-height:1.3; color:#334155; padding:4px 6px;">'
+    + '<p style="margin-bottom:4px;"><b>' + salutation + ':</b></p>'
+    + '<p style="margin-bottom:4px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', '
     + 'con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento '
     + 'del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, '
     + 'quien ha manifestado su interés en adquirir el vehículo <b>' + v.name + '</b> '
     + 'por un valor total de <b>' + fmt(calc.totalFiscal) + '</b> USD, bajo las condiciones del plan <b>' + (calc.plan || planName) + '</b>.</p>'
-    + '<p style="margin-bottom:6px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
+    + '<p style="margin-bottom:4px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
     + '<p>Atentamente,</p>'
     + '</div>'
     + '</div>';
 
   // --- Sello institucional (imagen real) ---
-  const selloHTML = '<div style="text-align:center; margin:4px 0; padding:2px;">'
-    + '<img src="img/sello_kibun.png" onerror="this.style.display=\'none\'" style="height:55px; opacity:0.85;" />'
+  const selloHTML = '<div style="text-align:center; margin:2px 0; padding:1px;">'
+    + '<img src="img/sello_kibun.png" onerror="this.style.display=\'none\'" style="height:45px; opacity:0.85;" />'
     + '</div>';
 
-  // --- Terminos y Condiciones (solo puntos 1, 3, 4, 5 — enfoque en la entidad seleccionada) ---
-  const terminosHTML = '<div style="padding:4px 0;">'
-    + '<div style="font-size:7pt; line-height:1.3; color:#475569; padding:4px 6px; word-break:break-word;">'
-    + '<b style="color:#002C5F; font-size:7.5pt;">Términos y Condiciones</b><br>'
+  // --- Terminos y Correlativos (1, 2, 3, 4) ---
+  const terminosHTML = '<div style="padding:3px 0;">'
+    + '<div style="font-size:6.5pt; line-height:1.25; color:#475569; padding:2px 4px; word-break:break-word;">'
+    + '<b style="color:#002C5F; font-size:7pt;">Términos y Condiciones</b><br>'
     + '1. Esta proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
-    + '3. La aprobación final del crédito está sujeta al análisis y evaluación crediticia de ' + planName + '.<br>'
-    + '4. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones vigentes de ' + planName + '.<br>'
-    + '5. Los precios están expresados exclusivamente en dólares americanos (USD).'
+    + '2. La aprobación final del crédito está sujeta al análisis y evaluación crediticia de la entidad financiera seleccionada.<br>'
+    + '3. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones vigentes de la entidad.<br>'
+    + '4. Los precios están expresados exclusivamente en dólares americanos (USD).'
     + '</div>'
     + '</div>';
 
   // --- Firmas + Sello (juntos, sin corte de página) ---
-  const firmasHTML = '<div style="display:flex; gap:8px; margin-top:6px;">'
-    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:3px; text-align:center; font-size:8pt;">'
+  const firmasHTML = '<div style="display:flex; gap:8px; margin-top:4px;">'
+    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
     +   '<b>' + (advisor.nombre || 'Asesor Comercial') + '</b><br><span style="color:#64748b;">Asesor Automotores Kibun</span>'
     + '</div>'
-    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:3px; text-align:center; font-size:8pt;">'
+    + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
     +   '<b>' + data.name + '</b><br><span style="color:#64748b;">' + data.cedula + ' · Cliente</span>'
     + '</div>'
   + '</div>'
-  + '<div style="margin-top:4px; text-align:center; font-size:6.5pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — Automotores Kibun Mérida · ' + state.proformaCode + '</div>';
+  + '<div style="margin-top:2px; text-align:center; font-size:6pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — Automotores Kibun Mérida · ' + state.proformaCode + '</div>';
 
   // --- Sello + Firmas envueltos juntos para evitar corte de página ---
   const selloFirmasHTML = '<div class="evitar-corte">'
@@ -2240,7 +2238,7 @@ function buildPDFHTML(calc, advisor) {
     + '</div>';
 
   return headerHTML
-    + '<div style="height:2px; background:linear-gradient(90deg,#002C5F,#00AAD2); margin:4px 0 6px;"></div>'
+    + '<div style="height:2px; background:linear-gradient(90deg,#002C5F,#00AAD2); margin:2px 0 4px;"></div>'
     + clienteHTML
     + vehiculoHTML
     + costosHTML

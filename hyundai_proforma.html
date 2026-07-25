@@ -728,13 +728,17 @@ const PIVCA = {
 const ARCA = {
   nombre: 'Arca',
   umbralPrecio: 30000,
-  // PLAN MENOR (vehículos < $30,000)
+  // PLAN MENOR (vehículos < $30,000) — 4 plazos disponibles
   menor: {
     inicialMin: 0.50,       // hasta 50% financiado
-    tasa: 0.16,             // 16% anual fijo
-    plazo: 24,              // 24 meses fijo
     logisticaPct: 0.05,     // 5% flat sobre PVP
-    adminPct: 0.05          // 5% anual aplicado mensualmente
+    adminPct: 0.05,         // 5% anual aplicado mensualmente
+    plazos: [
+      { meses: 12, tasa: 0.14 },
+      { meses: 24, tasa: 0.16 },
+      { meses: 36, tasa: 0.18 },
+      { meses: 48, tasa: 0.20 }
+    ]
   },
   // PLAN MAYOR (vehículos >= $30,000)
   mayor: {
@@ -1388,24 +1392,36 @@ function calcPivca(price, initialAmount, term, gastos = 0) {
 }
 
 // === MOTOR ARCA ===
-// Plan Menor (<$30k): 50% init, 16% TNA, 24m, logística 5% flat + admin 5% anual mensualizado.
-// Plan Mayor (>=$30k): 30% init, 14% TNA, 36-48m, logística 5-6% + admin 6-7% anual mensualizado.
+// Plan Menor (<$30k): 50% init, 12-48m, logística 5% flat + admin 5% anual mensualizado.
+// Plan Mayor (>=$30k): 30% init, 36-48m, logística 5-6% + admin 6-7% anual mensualizado.
 function calcArca(price, initialAmount, term, gastos = 0) {
   const esMenor = price < ARCA.umbralPrecio;
   const plan = esMenor ? ARCA.menor : ARCA.mayor;
   const M_base = price - initialAmount;
   const notaria = ARCA.notaria;
-  const logistica = price * (esMenor ? plan.logisticaPct : (plan.logisticaPct[term] || 0.05));
-  const adminPctAnual = esMenor ? plan.adminPct : (plan.adminPct[term] || 0.06);
+
+  // Get tasa and logistica/admin pcts based on term
+  let tasa, logisticaPct, adminPctAnual;
+  if (esMenor) {
+    const plazo = plan.plazos.find(p => p.meses === term) || plan.plazos[1]; // default 24m
+    tasa = plazo.tasa;
+    logisticaPct = plan.logisticaPct;
+    adminPctAnual = plan.adminPct;
+  } else {
+    tasa = plan.tasa;
+    logisticaPct = plan.logisticaPct[term] || 0.05;
+    adminPctAnual = plan.adminPct[term] || 0.06;
+  }
+
+  const logistica = price * logisticaPct;
   const adminMensual = M_base * (adminPctAnual / 12);
   const comision = M_base * 0.05;   // comisión flat 5% sobre financiado
   const tax = calcularDesglose(price, gastos);
-  const tasa = esMenor ? plan.tasa : plan.tasa;
   const M = M_base + notaria + logistica + comision + adminMensual + tax.iva + tax.igtf + tax.gastos;
   const cuota = calcFrench(M, tasa, term);
   return {
     tipo: 'Arca',
-    detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logistica/price*100).toFixed(1)}%`,
+    detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logisticaPct*100).toFixed(1)}%`,
     plan: `Arca ${esMenor ? 'Menor' : 'Mayor'} ${term} meses`,
     precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminMensual,
     gastoAdmin: adminMensual, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
@@ -1702,6 +1718,14 @@ function renderSelectedVehicle() {
 function updatePlanOptions() {
   const wrap = document.getElementById('planOptions');
   if (state.planType === 'provincial') {
+    const v = state.selectedVehicle;
+    const price = v ? v.price : 0;
+    const tax = calcularDesglose(price, Number(v?.gastos) || 0);
+    const base = PROVINCIAL.baseFormula(price, tax.iva);
+    const inicial10 = (base * 0.10).toFixed(2);
+    const inicial40 = (base * 0.40).toFixed(2);
+    const financiado10 = (base * 0.90).toFixed(2);
+    const financiado40 = (base * 0.60).toFixed(2);
     wrap.innerHTML = `
       <div class="grid sm:grid-cols-2 gap-3 text-sm">
         <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> 16.00%</div>
@@ -1710,35 +1734,68 @@ function updatePlanOptions() {
         <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 0.50% sobre financiado</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $180 (fijos)</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Iniciales válidas:</b> 10% o 40%</div>
-        <div class="sm:col-span-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
-          <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre la base imponible (PVP + 50% IVA). Inicial no válida = proforma bloqueada.
+      </div>
+      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
+        <p class="font-bold text-blue-800">Base Imponible (PVP Airtable): ${fmt(base)}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Inicial 10%:</p>
+            <p class="text-base font-bold">${fmt(inicial10)}</p>
+            <p class="text-slate-500">Financia: ${fmt(financiado10)}</p>
+          </div>
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Inicial 40%:</p>
+            <p class="text-base font-bold">${fmt(inicial40)}</p>
+            <p class="text-slate-500">Financia: ${fmt(financiado40)}</p>
+          </div>
         </div>
+      </div>
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
+        <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre la base imponible. Inicial no válida = proforma bloqueada.
       </div>
     `;
   } else if (state.planType === 'ctz') {
+    const v = state.selectedVehicle;
+    const price = v ? v.price : 0;
+    const init50 = (price * 0.50).toFixed(2);
+    const fin50 = (price * 0.50).toFixed(2);
     wrap.innerHTML = `
       <label class="text-sm font-semibold text-slate-700">Selecciona un plan CTZ:</label>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
-        ${CTZ_PLANES.map(p => `
+        ${CTZ_PLANES.map(p => {
+          const adminUsd = (price * 0.50 * p.gastoAdmin).toFixed(0);
+          const flatUsd = (price * 0.50 * p.comisionFlat).toFixed(0);
+          return `
           <label class="cursor-pointer">
             <input type="radio" name="ctzPlan" value="${p.id}" class="sr-only peer" ${state.ctzPlanId===p.id?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${p.meses} meses</p>
               <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}%</p>
-              <p class="text-xs text-slate-500">G. Admin ${(p.gastoAdmin*100).toFixed(1)}%</p>
-              <p class="text-xs text-slate-500">C. Flat ${(p.comisionFlat*100).toFixed(1)}%</p>
+              <p class="text-xs text-slate-500">Admin ${fmt(adminUsd)}</p>
+              <p class="text-xs text-slate-500">Flat ${fmt(flatUsd)}</p>
             </div>
-          </label>
-        `).join('')}
+          </label>`;
+        }).join('')}
       </div>
-      <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gasto Administrativo:</b> 1-2% (según plan)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 1-2% (según plan)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> 50%</div>
+      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
+        <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Inicial obligatoria 50%:</p>
+            <p class="text-base font-bold">${fmt(init50)}</p>
+          </div>
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Monto financiado:</p>
+            <p class="text-base font-bold">${fmt(fin50)}</p>
+          </div>
+        </div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Alemán (cuota decreciente)</div>
       </div>
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
-        <b>Importante:</b> CTZ financia máximo 50% del valor del vehículo. Inicial obligatoria del 50%. Sistema alemán (cuota decreciente).
+        <b>Importante:</b> CTZ financia máximo 50%. Inicial obligatoria del 50%. IVA 16% sobre interés + IGTF 3%.
       </div>
     `;
     wrap.querySelectorAll('input[name="ctzPlan"]').forEach(r => {
@@ -1746,6 +1803,13 @@ function updatePlanOptions() {
     });
   } else if (state.planType === 'pivca') {
     state.pivcaTerm = 24;
+    const v = state.selectedVehicle;
+    const price = v ? v.price : 0;
+    const init50 = (price * 0.50).toFixed(2);
+    const fin50 = (price * 0.50).toFixed(2);
+    const seguroVeh = (price * PIVCA.seguroVehicularPct).toFixed(2);
+    const seguroVida = (price * 0.50 * PIVCA.seguroVidaPct).toFixed(2);
+    const comisionUsd = (price * 0.50 * PIVCA.comisionFlat).toFixed(2);
     wrap.innerHTML = `
       <label class="text-sm font-semibold text-slate-700">Plan Pivca:</label>
       <div class="border-2 rounded-xl p-3 border-hyundai2 bg-blue-50 mt-2">
@@ -1753,14 +1817,24 @@ function updatePlanOptions() {
         <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}% anual · Sistema francés</p>
         <p class="text-xs text-slate-500">Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}% sobre financiado</p>
       </div>
-      <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> ${(PIVCA.TNA*100).toFixed(0)}%</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Cuota fija (francés)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> ${(PIVCA.comisionFlat*100).toFixed(0)}%</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $${PIVCA.notaria} (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro Vehículo:</b> ${(PIVCA.seguroVehicularPct*100).toFixed(1)}% del valor del vehículo</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro Vida:</b> ${(PIVCA.seguroVidaPct*100).toFixed(2)}% del monto financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3 sm:col-span-2"><b>Inicial mínima:</b> 50% del PVP</div>
+      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
+        <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Inicial obligatoria 50%:</p>
+            <p class="text-base font-bold">${fmt(init50)}</p>
+          </div>
+          <div class="bg-white rounded p-2 border border-blue-100">
+            <p class="font-semibold text-blue-700">Monto financiado:</p>
+            <p class="text-base font-bold">${fmt(fin50)}</p>
+          </div>
+        </div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vehículo 3%:</b> ${fmt(seguroVeh)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vida 0.75%:</b> ${fmt(seguroVida)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión flat 5%:</b> ${fmt(comisionUsd)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
       </div>
     `;
   } else if (state.planType === 'v13') {
@@ -1768,15 +1842,30 @@ function updatePlanOptions() {
     const esMenor = price < ARCA.umbralPrecio;
     const inicialLabel = esMenor ? '50%' : '30%';
     if (esMenor) {
-      // PLAN MENOR: 24 meses fijo, sin opciones
-      state.v13Term = 24;
+      // PLAN MENOR: 4 plazos con tasas variables
+      if (!ARCA.menor.plazos.find(p => p.meses === state.v13Term)) {
+        state.v13Term = 24; // default
+      }
       wrap.innerHTML = `
-        <label class="text-sm font-semibold text-slate-700">Plan Arca Menor (&lt; $${ARCA.umbralPrecio.toLocaleString()}):</label>
-        <div class="border-2 rounded-xl p-3 border-hyundai2 bg-blue-50 mt-2">
-          <p class="font-bold text-hyundai">24 meses fijo</p>
-          <p class="text-xs text-slate-500">Tasa ${(ARCA.menor.tasa*100).toFixed(0)}% anual fija</p>
-          <p class="text-xs text-slate-500">Logística ${(ARCA.menor.logisticaPct*100).toFixed(0)}% flat</p>
-          <p class="text-xs text-slate-500">Admin ${(ARCA.menor.adminPct*100).toFixed(0)}% anual mensualizado</p>
+        <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Menor (&lt; $${ARCA.umbralPrecio.toLocaleString()}):</label>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
+          ${ARCA.menor.plazos.map(p => {
+            const v = state.selectedVehicle;
+            const price = v ? v.price : 0;
+            const montoFinanciar = price * 0.50; // 50% financiado
+            const adminUsd = (montoFinanciar * (ARCA.menor.adminPct / 12) * p.meses).toFixed(0);
+            const logisticaUsd = (price * ARCA.menor.logisticaPct).toFixed(0);
+            return `
+          <label class="cursor-pointer">
+            <input type="radio" name="v13Term" value="${p.meses}" class="sr-only peer" ${state.v13Term===p.meses?'checked':''} />
+            <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
+              <p class="font-bold text-hyundai">${p.meses} meses</p>
+              <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}% anual</p>
+              <p class="text-xs text-slate-500">Logística $${logisticaUsd}</p>
+              <p class="text-xs text-slate-500">Admin ~$${adminUsd} total</p>
+            </div>
+          </label>`;
+          }).join('')}
         </div>
         <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
           <div class="rounded-lg bg-slate-50 p-3"><b>Logística:</b> ${(ARCA.menor.logisticaPct*100).toFixed(0)}% flat sobre PVP</div>
@@ -1785,30 +1874,49 @@ function updatePlanOptions() {
           <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
         </div>
       `;
+      wrap.querySelectorAll('input[name="v13Term"]').forEach(r => {
+        r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
+      });
     } else {
       // PLAN MAYOR: 36 o 48 meses
+      const init30 = (price * 0.30).toFixed(2);
+      const fin70 = (price * 0.70).toFixed(2);
       wrap.innerHTML = `
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Mayor:</label>
         <div class="grid sm:grid-cols-2 gap-2 mt-2">
           ${ARCA.mayor.plazosDisponibles.map(t => {
-            const logistica = (ARCA.mayor.logisticaPct[t] * 100).toFixed(0);
-            const admin = (ARCA.mayor.adminPct[t] * 100).toFixed(0);
+            const logisticaPct = ARCA.mayor.logisticaPct[t];
+            const adminPct = ARCA.mayor.adminPct[t];
+            const logisticaUsd = (price * logisticaPct).toFixed(0);
+            const adminUsd = (price * 0.70 * adminPct).toFixed(0);
             return `
           <label class="cursor-pointer">
             <input type="radio" name="v13Term" value="${t}" class="sr-only peer" ${state.v13Term===t?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${t} meses</p>
               <p class="text-xs text-slate-500">Tasa ${(ARCA.mayor.tasa*100).toFixed(0)}% anual</p>
-              <p class="text-xs text-slate-500">Logística ${logistica}% + Admin ${admin}%</p>
+              <p class="text-xs text-slate-500">Logística ${fmt(logisticaUsd)}</p>
+              <p class="text-xs text-slate-500">Admin ~${fmt(adminUsd)}</p>
             </div>
           </label>`;
           }).join('')}
         </div>
-        <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-          <div class="rounded-lg bg-slate-50 p-3"><b>Logística:</b> 5-6% según plazo</div>
-          <div class="rounded-lg bg-slate-50 p-3"><b>Admin + Flat:</b> 6-7% + 5%</div>
+        <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
+          <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-white rounded p-2 border border-blue-100">
+              <p class="font-semibold text-blue-700">Inicial obligatoria 30%:</p>
+              <p class="text-base font-bold">${fmt(init30)}</p>
+            </div>
+            <div class="bg-white rounded p-2 border border-blue-100">
+              <p class="font-semibold text-blue-700">Monto financiado:</p>
+              <p class="text-base font-bold">${fmt(fin70)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
           <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
-          <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Comisión flat:</b> 5% del financiado</div>
         </div>
       `;
       wrap.querySelectorAll('input[name="v13Term"]').forEach(r => {

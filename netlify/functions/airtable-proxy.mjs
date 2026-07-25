@@ -31,6 +31,8 @@ const LEADS_REQUIRED_FIELDS = [
   { name: 'Cliente',             type: 'Single line text' },
   { name: 'Cedula',              type: 'Single line text' },
   { name: 'Telefono Cliente',    type: 'Phone number' },
+  { name: 'Direccion',           type: 'Single line text' },
+  { name: 'Correo Cliente',      type: 'Email' },
   { name: 'Vehiculo Interesado', type: 'Single line text' },
   { name: 'Color',               type: 'Single line text' },
   { name: 'Asesor Asignado',     type: 'Single line text' },
@@ -48,7 +50,7 @@ const LEADS_REQUIRED_FIELDS = [
 ];
 
 // same set without Color/Estatus — used as fallback if schema creation fails
-const LEADS_OPTIONAL_FIELDS = new Set(['Color', 'Estatus']);
+const LEADS_OPTIONAL_FIELDS = new Set(['Color', 'Estatus', 'Direccion', 'Correo Cliente']);
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -92,6 +94,7 @@ export async function handler(event, context) {
       case 'updateLeadStatus':  return await handleUpdateLeadStatus(body);
       case 'ensureLeadsSchema':  return await handleEnsureLeadsSchema();
       case 'ensureVehiculosSchema': return await handleEnsureVehiculosSchema();
+      case 'ensureAsesoresSchema':  return await handleEnsureAsesoresSchema();
       case 'validateVendedor':   return await handleValidateVendedor(body);
       case 'listVendedores':    return await handleListVendedores();
       case 'addVendedor':       return await handleAddVendedor(body);
@@ -362,12 +365,26 @@ async function handleEnsureLeadsSchema() {
   }
 }
 
-const COLOR_IMAGE_FIELDS = [
-  { name: 'Imagen_Blanco', type: 'singleLineText' },
-  { name: 'Imagen_Negro',  type: 'singleLineText' },
-  { name: 'Imagen_Plata',  type: 'singleLineText' },
-  { name: 'Imagen_Azul',   type: 'singleLineText' },
-  { name: 'Imagen_Rojo',   type: 'singleLineText' }
+const VEHICULOS_REQUIRED_FIELDS = [
+  { name: 'PVP',             type: 'Number' },
+  { name: 'IVA_16',          type: 'Number' },
+  { name: 'IGTF_3',          type: 'Number' },
+  { name: 'Tramites_Gastos', type: 'Number' },
+  { name: 'Total',           type: 'Number' },
+  { name: 'Color_Blanco',    type: 'URL' },
+  { name: 'Color_Negro',     type: 'URL' },
+  { name: 'Color_Plata',     type: 'URL' },
+  { name: 'Color_Azul',      type: 'URL' },
+  { name: 'Color_Rojo',      type: 'URL' }
+];
+
+const ASESORES_REQUIRED_FIELDS = [
+  { name: 'Nombre del Asesor', type: 'Single line text' },
+  { name: 'Correo',            type: 'Email' },
+  { name: 'Telefono',          type: 'Phone number' },
+  { name: 'Activo',            type: 'Checkbox' },
+  { name: 'PIN_Hash',          type: 'Single line text' },
+  { name: 'ID_Vendedor',       type: 'Single line text' }
 ];
 
 async function handleEnsureVehiculosSchema() {
@@ -376,12 +393,28 @@ async function handleEnsureVehiculosSchema() {
     const vTable = (metaData.tables || []).find(function(t) { return t.name === 'Vehiculos'; });
     if (!vTable) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: false, error: 'Vehiculos table not found' }) };
     const existing = new Set((vTable.fields || []).map(function(f) { return f.name; }));
-    const missing = COLOR_IMAGE_FIELDS.filter(function(f) { return !existing.has(f.name); });
-    if (missing.length === 0) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: true, message: 'All color image fields exist' }) };
+    const missing = VEHICULOS_REQUIRED_FIELDS.filter(function(f) { return !existing.has(f.name); });
+    if (missing.length === 0) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: true, message: 'All vehiculos fields exist' }) };
     await metaFetch('PATCH', 'tables/' + vTable.id, { fields: missing });
     return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: true, message: 'Created ' + missing.length + ' field(s): ' + missing.map(function(m) { return m.name; }).join(', ') }) };
   } catch (err) {
     console.error('[airtable-proxy] ensureVehiculosSchema error:', err.message);
+    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: false, error: err.airtableError?.type || 'ERROR', message: err.message }) };
+  }
+}
+
+async function handleEnsureAsesoresSchema() {
+  try {
+    const metaData = await metaFetch('GET', 'tables');
+    const aTable = (metaData.tables || []).find(function(t) { return t.name === 'Asesores'; });
+    if (!aTable) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: false, error: 'Asesores table not found' }) };
+    const existing = new Set((aTable.fields || []).map(function(f) { return f.name; }));
+    const missing = ASESORES_REQUIRED_FIELDS.filter(function(f) { return !existing.has(f.name); });
+    if (missing.length === 0) return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: true, message: 'All asesores fields exist' }) };
+    await metaFetch('PATCH', 'tables/' + aTable.id, { fields: missing });
+    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: true, message: 'Created ' + missing.length + ' field(s): ' + missing.map(function(m) { return m.name; }).join(', ') }) };
+  } catch (err) {
+    console.error('[airtable-proxy] ensureAsesoresSchema error:', err.message);
     return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ success: false, error: err.airtableError?.type || 'ERROR', message: err.message }) };
   }
 }

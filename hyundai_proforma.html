@@ -1643,10 +1643,19 @@ function updatePlanOptions() {
     });
   } else if (state.planType === 'pivca') {
     wrap.innerHTML = `
-      <label class="text-sm font-semibold text-slate-700">Plazo (Pivca):</label>
-      <select id="pivcaTerm" class="mt-1 w-full sm:w-64 px-3 py-2.5 border-2 border-slate-200 rounded-lg font-semibold focus:border-hyundai2 focus:outline-none">
-        ${PIVCA.plazosDisponibles.map(t => `<option value="${t}" ${state.pivcaTerm===t?'selected':''}>${t} meses</option>`).join('')}
-      </select>
+      <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Pivca:</label>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
+        ${PIVCA.plazosDisponibles.map(t => `
+          <label class="cursor-pointer">
+            <input type="radio" name="pivcaTerm" value="${t}" class="sr-only peer" ${state.pivcaTerm===t?'checked':''} />
+            <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
+              <p class="font-bold text-hyundai">${t} meses</p>
+              <p class="text-xs text-slate-500">Tasa 18%</p>
+              <p class="text-xs text-slate-500">C. Flat 5.0%</p>
+            </div>
+          </label>
+        `).join('')}
+      </div>
       <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
         <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> 18.00%</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Cuota fija (francés)</div>
@@ -1658,26 +1667,40 @@ function updatePlanOptions() {
       </div>
       <p class="text-xs text-slate-500 mt-2 italic">Fuente: Simulación Préstamo Pivca.xlsx</p>
     `;
-    document.getElementById('pivcaTerm').addEventListener('change', e => { state.pivcaTerm = parseInt(e.target.value); updateLiveSummary(); });
+    wrap.querySelectorAll('input[name="pivcaTerm"]').forEach(r => {
+      r.addEventListener('change', e => { state.pivcaTerm = parseInt(e.target.value); updateLiveSummary(); });
+    });
   } else if (state.planType === 'v13') {
     const price = state.selectedVehicle?.price || 0;
     const inicialLabel = price < ARCA.umbralPrecio ? '50%' : '75%';
-    const tasaLabel = price < ARCA.umbralPrecio ? '16% fija' : `${ARCA.plazosDisponibles.map(t => `${t}m: ${(ARCA.tasas[t]*100).toFixed(0)}%`).join(' · ')}`;
+    const esMenor = price < ARCA.umbralPrecio;
     wrap.innerHTML = `
-      <label class="text-sm font-semibold text-slate-700">Plazo (Arca):</label>
-      <select id="v13Term" class="mt-1 w-full sm:w-64 px-3 py-2.5 border-2 border-slate-200 rounded-lg font-semibold focus:border-hyundai2 focus:outline-none">
-        ${ARCA.plazosDisponibles.map(t => `<option value="${t}" ${state.v13Term===t?'selected':''}>${t} meses</option>`).join('')}
-      </select>
+      <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca:</label>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2 mt-2">
+        ${ARCA.plazosDisponibles.map(t => {
+          const tasa = esMenor ? ARCA.tasaMenor : ARCA.tasas[t];
+          return `
+          <label class="cursor-pointer">
+            <input type="radio" name="v13Term" value="${t}" class="sr-only peer" ${state.v13Term===t?'checked':''} />
+            <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
+              <p class="font-bold text-hyundai">${t} meses</p>
+              <p class="text-xs text-slate-500">Tasa ${(tasa*100).toFixed(0)}%${esMenor ? ' fija' : ''}</p>
+              <p class="text-xs text-slate-500">C. Flat 5.0%</p>
+            </div>
+          </label>`;
+        }).join('')}
+      </div>
       <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
         <div class="rounded-lg bg-slate-50 p-3"><b>Cargo de logística:</b> 1.5% del valor</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>G. Administrativo + Com. Flat:</b> 5% unificado</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Gastos Notaría:</b> $200 (fijos)</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
-        <div class="rounded-lg bg-slate-50 p-3 col-span-2"><b>Tasa aplicada:</b> ${tasaLabel}</div>
       </div>
-      <p class="text-xs text-slate-500 mt-2 italic">Condiciones según valor del vehículo. &lt; $${ARCA.umbralPrecio.toLocaleString()}: 16% fijo. ≥ $${ARCA.umbralPrecio.toLocaleString()}: tasa variable.</p>
+      <p class="text-xs text-slate-500 mt-2 italic">Condiciones según valor del vehículo. &lt; $${ARCA.umbralPrecio.toLocaleString()}: 16% fijo. ≥ $${ARCA.umbralPrecio.toLocaleString()}: tasa variable por plazo.</p>
     `;
-    document.getElementById('v13Term').addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
+    wrap.querySelectorAll('input[name="v13Term"]').forEach(r => {
+      r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
+    });
   }
 }
 

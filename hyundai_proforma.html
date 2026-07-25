@@ -403,15 +403,8 @@
             <h3 class="text-lg font-bold" id="summaryPlanName">Banco Provincial 48m</h3>
           </div>
           <div class="p-5 space-y-3 text-sm">
-            <div class="flex justify-between"><span class="text-slate-500">Subtotal (precio vehículo)</span><span class="font-semibold" id="sumPrice">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Base imponible</span><span class="font-semibold" id="sumPrice">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Inicial (<span id="sumInitPct">30</span>%)</span><span class="font-semibold text-rose-600" id="sumInitial">-$0.00</span></div>
-            <div class="flex justify-between" id="sumFlatRow"><span class="text-slate-500">Comisión Flat</span><span class="font-semibold" id="sumFlat">$0.00</span></div>
-            <div class="flex justify-between" id="sumAdminCtzRow"><span class="text-slate-500">Gasto Administrativo</span><span class="font-semibold" id="sumAdminCtz">$0.00</span></div>
-            <div class="flex justify-between" id="sumNotariaRow"><span class="text-slate-500">Gastos de Notaría</span><span class="font-semibold" id="sumNotaria">$0.00</span></div>
-            <div class="flex justify-between" id="sumLogRow"><span class="text-slate-500">Logística/Transporte</span><span class="font-semibold" id="sumLog">$0.00</span></div>
-            <div class="flex justify-between" id="sumAdminRow"><span class="text-slate-500">Gastos administrativos (total)</span><span class="font-semibold" id="sumAdmin">$0.00</span></div>
-            <div class="flex justify-between" id="sumSeguroRow"><span class="text-slate-500">Seguro Vehículo</span><span class="font-semibold" id="sumSeguro">$0.00</span></div>
-            <div class="flex justify-between" id="sumPolizaRow"><span class="text-slate-500">Póliza de Vida</span><span class="font-semibold" id="sumPoliza">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">IVA (16%)</span><span class="font-semibold" id="sumIVA">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">IGTF (3%)</span><span class="font-semibold" id="sumIGTF">$0.00</span></div>
             <hr class="border-slate-200">
@@ -1712,32 +1705,6 @@ function updateLiveSummary() {
   document.getElementById('sumPrice').textContent    = fmt(calc.precio);
   document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
   document.getElementById('sumInitPct').textContent  = (getInitialPct()*100).toFixed(1);
-  document.getElementById('sumFlat').textContent     = fmt(calc.comisionFlat || calc.comision);
-
-  const showAdminCtz = calc.gastoAdmin > 0;
-  document.getElementById('sumAdminCtzRow').style.display = showAdminCtz ? 'flex' : 'none';
-  document.getElementById('sumAdminCtz').textContent = fmt(calc.gastoAdmin || 0);
-
-  const showNotaria = calc.notaria > 0;
-  document.getElementById('sumNotariaRow').style.display = showNotaria ? 'flex' : 'none';
-  document.getElementById('sumNotaria').textContent = fmt(calc.notaria);
-
-  const showLog = calc.logistica > 0;
-  document.getElementById('sumLogRow').style.display = showLog ? 'flex' : 'none';
-  document.getElementById('sumLog').textContent = fmt(calc.logistica);
-
-  const showAdmin = calc.admin > 0;
-  document.getElementById('sumAdminRow').style.display = showAdmin ? 'flex' : 'none';
-  document.getElementById('sumAdmin').textContent = fmt(calc.admin);
-
-  const showSeguro = calc.seguroVehiculo > 0;
-  document.getElementById('sumSeguroRow').style.display = showSeguro ? 'flex' : 'none';
-  document.getElementById('sumSeguro').textContent = fmt(calc.seguroVehiculo || 0);
-
-  const showPoliza = calc.polizaVida > 0;
-  document.getElementById('sumPolizaRow').style.display = showPoliza ? 'flex' : 'none';
-  document.getElementById('sumPoliza').textContent = fmt(calc.polizaVida || 0);
-
   document.getElementById('sumIVA').textContent    = fmt(calc.iva);
   document.getElementById('sumIGTF').textContent   = fmt(calc.igtf);
   document.getElementById('sumFinanced').textContent = fmt(calc.montoFinanciar);

@@ -654,7 +654,12 @@ const SEGURO_PCT = 0.035;    // 3.5% anual del valor del vehículo (referencial)
    ============================================================= */
 const PROVINCIAL = {
   nombre: 'Banco Provincial (UVC Indexado)',
-  TNA: 0.16, plazo: 48, comisionFlat: 0.005, notaria: 180, inicialMin: 0.10,
+  TNA: 0.16, plazo: 48, comisionFlat: 0.005, notaria: 180,
+  inicialMin: 0.10,
+  // Solo se aprueban iniciales del 10% o 40% sobre (PVP + 50% IVA)
+  allowedInitials: [0.10, 0.40],
+  // Base imponible para Provincial: PVP + 50% del IVA
+  baseFormula: function(pvp, iva) { return pvp + iva * 0.50; },
   sistema: 'frances'
 };
 
@@ -698,32 +703,49 @@ const aliasNombres = {
 };
 
 const CTZ_PLANES = [
-  { id: 1, meses: 12, tasa: 0.12, gastoAdmin: 0.025, comisionFlat: 0.025, nombre: 'CTZ Plan 12 meses' },
-  { id: 2, meses: 18, tasa: 0.16, gastoAdmin: 0.025, comisionFlat: 0.025, nombre: 'CTZ Plan 18 meses' },
-  { id: 3, meses: 24, tasa: 0.16, gastoAdmin: 0.025, comisionFlat: 0.025, nombre: 'CTZ Plan 24 meses' },
-  { id: 4, meses: 48, tasa: 0.25, gastoAdmin: 0.025, comisionFlat: 0.025, nombre: 'CTZ Plan 48 meses' }
+  { id: 1, meses: 12, tasa: 0.12, gastoAdmin: 0.01, comisionFlat: 0.03, nombre: 'CTZ Plan 12 meses' },
+  { id: 2, meses: 18, tasa: 0.16, gastoAdmin: 0.015, comisionFlat: 0.03, nombre: 'CTZ Plan 18 meses' },
+  { id: 3, meses: 24, tasa: 0.18, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 24 meses' },
+  { id: 4, meses: 36, tasa: 0.25, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 36 meses' }
 ];
-const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.20, notaria: 200, sistema: 'aleman' };
+// Financia hasta 50% del PVP. Inicial obligatoria: 50%.
+const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.50, inicialMax: 0.50, notaria: 200, sistema: 'aleman' };
 
 const PIVCA = {
   nombre: 'Pivca',
   TNA: 0.18, plazo: 24, comisionFlat: 0.05,
+  // Inicial mínima 50%. Financia hasta 50% del valor del vehículo.
   inicialMin: 0.50, inicialMaxSugerida: 0.50,
-  notaria: 200, seguroPct: 0.03, polizaPct: 0.0075,
-  sistema: 'frances', plazosDisponibles: [12, 18, 24, 36]
+  notaria: 200,
+  // Comisiones: 5% total sobre el monto financiado (flat + admin + notaría)
+  // Seguros: vehicular 3% del valor del vehículo, vida 0.75% del monto financiado
+  seguroVehicularPct: 0.03,   // sobre el valor del vehículo
+  seguroVidaPct: 0.0075,      // sobre el monto financiado
+  sistema: 'frances', plazosDisponibles: [24]
 };
 
+// === ARCA: Plan Menor (<$30k) y Plan Mayor (>=$30k) ===
 const ARCA = {
   nombre: 'Arca',
-  logisticaPct: 0.015,
-  comisionUnificada: 0.05,
-  notaria: 200,
-  tasas: { 12: 0.14, 18: 0.16, 24: 0.18, 36: 0.20, 48: 0.22 },
-  plazosDisponibles: [12, 18, 24, 36, 48],
   umbralPrecio: 30000,
-  tasaMenor: 0.16,
-  inicialMenor: 0.50,
-  inicialMayor: 0.75,
+  // PLAN MENOR (vehículos < $30,000)
+  menor: {
+    inicialMin: 0.50,       // hasta 50% financiado
+    tasa: 0.16,             // 16% anual fijo
+    plazo: 24,              // 24 meses fijo
+    logisticaPct: 0.05,     // 5% flat sobre PVP
+    adminPct: 0.05          // 5% anual aplicado mensualmente
+  },
+  // PLAN MAYOR (vehículos >= $30,000)
+  mayor: {
+    inicialMin: 0.30,       // hasta 70% financiado
+    tasa: 0.14,             // 14% anual fijo
+    plazo: 36,              // 36 meses default (36-48 disponible)
+    logisticaPct: { 36: 0.05, 48: 0.06 },  // 5% o 6% según plazo
+    adminPct: { 36: 0.06, 48: 0.07 },      // 6% o 7% anual mensualizado
+    plazosDisponibles: [36, 48]
+  },
+  notaria: 200,
   sistema: 'frances'
 };
 
@@ -1068,6 +1090,65 @@ function getInitialPct() {
   return getInitialAmount() / state.selectedVehicle.price;
 }
 
+// === VALIDACIÓN DE INICIAL POR PLAN ===
+function validateInitial() {
+  if (!state.selectedVehicle) return { valid: false, message: 'Selecciona un vehículo.' };
+  const v = state.selectedVehicle;
+  const ia = getInitialAmount();
+  const pct = ia / v.price;
+
+  if (state.planType === 'provincial') {
+    const tax = calcularDesglose(v.price, Number(v.gastos) || 0);
+    const base = PROVINCIAL.baseFormula(v.price, tax.iva);
+    const pctBase = ia / base;
+    // Solo permitir 10% o 40% de la base imponible
+    const tol = 0.005; // 0.5% tolerancia
+    const is10 = Math.abs(pctBase - 0.10) < tol;
+    const is40 = Math.abs(pctBase - 0.40) < tol;
+    if (!is10 && !is40) {
+      return {
+        valid: false,
+        message: `Provincial solo aprueba iniciales del 10% o 40% sobre la base imponible ($${base.toLocaleString()}). Tu inicial ($${ia.toLocaleString()}) equivale al ${(pctBase*100).toFixed(1)}% de la base.`
+      };
+    }
+    return { valid: true, message: '' };
+  }
+
+  if (state.planType === 'ctz') {
+    if (pct < CTZ.inicialMin - 0.005) {
+      return {
+        valid: false,
+        message: `CTZ requiere una inicial mínima del ${(CTZ.inicialMin*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
+      };
+    }
+    return { valid: true, message: '' };
+  }
+
+  if (state.planType === 'pivca') {
+    if (pct < PIVCA.inicialMin - 0.005) {
+      return {
+        valid: false,
+        message: `Pivca requiere una inicial mínima del ${(PIVCA.inicialMin*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
+      };
+    }
+    return { valid: true, message: '' };
+  }
+
+  if (state.planType === 'v13') {
+    const esMenor = v.price < ARCA.umbralPrecio;
+    const minInit = esMenor ? ARCA.menor.inicialMin : ARCA.mayor.inicialMin;
+    if (pct < minInit - 0.005) {
+      return {
+        valid: false,
+        message: `Arca ${esMenor ? 'Menor' : 'Mayor'} requiere una inicial mínima del ${(minInit*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
+      };
+    }
+    return { valid: true, message: '' };
+  }
+
+  return { valid: true, message: '' };
+}
+
 // === DESGLOSE FISCAL (LÓGICA LOCAL) ===
 // Dado un PVP, calcula IVA 16% e IGTF 3%. Los "gastos" son fijos por modelo
 // (provienen de configuracionPrecios), por lo que se reciben como parámetro.
@@ -1180,7 +1261,7 @@ function getMinInitialPct() {
   if (state.planType === 'pivca') return PIVCA.inicialMin;
   if (state.planType === 'v13') {
     const price = state.selectedVehicle?.price || 0;
-    return price < ARCA.umbralPrecio ? ARCA.inicialMenor : ARCA.inicialMayor;
+    return price < ARCA.umbralPrecio ? ARCA.menor.inicialMin : ARCA.mayor.inicialMin;
   }
   return 0.20;
 }
@@ -1192,7 +1273,11 @@ function getCurrentPlanName() {
     return `${p.nombre} · ${p.meses} meses`;
   }
   if (state.planType === 'pivca') return `${PIVCA.nombre} · ${state.pivcaTerm} meses`;
-  if (state.planType === 'v13') return `${ARCA.nombre} · ${state.v13Term} meses`;
+  if (state.planType === 'v13') {
+    const price = state.selectedVehicle?.price || 0;
+    const esMenor = price < ARCA.umbralPrecio;
+    return `${ARCA.nombre} ${esMenor ? 'Menor' : 'Mayor'} · ${state.v13Term} meses`;
+  }
   return '—';
 }
 
@@ -1227,18 +1312,21 @@ function calcGermanSchedule(M, annualRate, n) {
 }
 
 // === MOTOR PROVINCIAL ===
+// Base imponible: PVP + 50% del IVA. Financia 90% (inicial 10%) o 60% (inicial 40%).
 function calcProvincial(price, initialAmount, gastos = 0) {
-  const M_base = price - initialAmount;
-  const comision = M_base * PROVINCIAL.comisionFlat;
-  const notaria = PROVINCIAL.notaria;
   const tax = calcularDesglose(price, gastos);
-  const M = M_base + comision + notaria + tax.iva + tax.igtf + tax.gastos;
+  const baseImponible = PROVINCIAL.baseFormula(price, tax.iva);
+  // La inicial se calcula sobre la base imponible
+  const comision = (baseImponible - initialAmount) * PROVINCIAL.comisionFlat;
+  const notaria = PROVINCIAL.notaria;
+  const montoFinanciar = baseImponible - initialAmount;
+  const M = montoFinanciar + comision + notaria;
   const cuota = calcFrench(M, PROVINCIAL.TNA, PROVINCIAL.plazo);
   return {
     tipo: 'Provincial',
     detalle: `Banco Provincial · 48 meses · TNA ${(PROVINCIAL.TNA*100).toFixed(0)}%`,
     plan: 'Banco Provincial (UVC Indexado)',
-    precio: price, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
+    precio: price, inicial: initialAmount, baseImponible, comision, notaria, logistica: 0, admin: 0,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: PROVINCIAL.plazo, tasa: PROVINCIAL.TNA,
     cuotaMensual: cuota,
@@ -1248,9 +1336,10 @@ function calcProvincial(price, initialAmount, gastos = 0) {
 }
 
 // === MOTOR CTZ ===
+// Max 50% financiado (inicial 50%). Sistema alemán (cuota decreciente).
 function calcCTZ(price, initialAmount, planId, gastos = 0) {
   const plan = CTZ_PLANES.find(p => p.id === planId);
-  const M_base = price - initialAmount;
+  const M_base = price - initialAmount;     // monto base a financiar
   const gastoAdmin = M_base * plan.gastoAdmin;
   const comisionFlat = M_base * plan.comisionFlat;
   const notaria = CTZ.notaria;
@@ -1272,18 +1361,21 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
 }
 
 // === MOTOR PIVCA ===
+// 50% financiado. 24 meses fijo. TNA 18%.
+// Comisión flat 5% sobre monto financiado.
+// Seguros: vehicular 3% del PVP + vida 0.75% del monto financiado.
 function calcPivca(price, initialAmount, term, gastos = 0) {
   const M_base = price - initialAmount;
   const comision = M_base * PIVCA.comisionFlat;
   const notaria = PIVCA.notaria;
-  const seguroVehiculo = M_base * PIVCA.seguroPct;
-  const polizaVida = M_base * PIVCA.polizaPct;
+  const seguroVehiculo = price * PIVCA.seguroVehicularPct;       // 3% del valor del vehículo
+  const polizaVida = M_base * PIVCA.seguroVidaPct;               // 0.75% del monto financiado
   const tax = calcularDesglose(price, gastos);
   const M = M_base + comision + notaria + seguroVehiculo + polizaVida + tax.iva + tax.igtf + tax.gastos;
   const cuota = calcFrench(M, PIVCA.TNA, term);
   return {
     tipo: 'Pivca',
-    detalle: `Pivca · ${term} meses · TNA ${(PIVCA.TNA*100).toFixed(0)}% · Flat 5%`,
+    detalle: `Pivca · ${term} meses · TNA ${(PIVCA.TNA*100).toFixed(0)}% · Flat ${(PIVCA.comisionFlat*100).toFixed(0)}%`,
     plan: `Pivca ${term} meses`,
     precio: price, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
     gastoAdmin: 0, comisionFlat: comision, seguroVehiculo, polizaVida,
@@ -1296,21 +1388,27 @@ function calcPivca(price, initialAmount, term, gastos = 0) {
 }
 
 // === MOTOR ARCA ===
+// Plan Menor (<$30k): 50% init, 16% TNA, 24m, logística 5% flat + admin 5% anual mensualizado.
+// Plan Mayor (>=$30k): 30% init, 14% TNA, 36-48m, logística 5-6% + admin 6-7% anual mensualizado.
 function calcArca(price, initialAmount, term, gastos = 0) {
+  const esMenor = price < ARCA.umbralPrecio;
+  const plan = esMenor ? ARCA.menor : ARCA.mayor;
   const M_base = price - initialAmount;
   const notaria = ARCA.notaria;
-  const logistica = price * ARCA.logisticaPct;
-  const comision = M_base * ARCA.comisionUnificada;
+  const logistica = price * (esMenor ? plan.logisticaPct : (plan.logisticaPct[term] || 0.05));
+  const adminPctAnual = esMenor ? plan.adminPct : (plan.adminPct[term] || 0.06);
+  const adminMensual = M_base * (adminPctAnual / 12);
+  const comision = M_base * 0.05;   // comisión flat 5% sobre financiado
   const tax = calcularDesglose(price, gastos);
-  const tasa = price < ARCA.umbralPrecio ? ARCA.tasaMenor : ARCA.tasas[term];
-  const M = M_base + notaria + logistica + comision + tax.iva + tax.igtf + tax.gastos;
+  const tasa = esMenor ? plan.tasa : plan.tasa;
+  const M = M_base + notaria + logistica + comision + adminMensual + tax.iva + tax.igtf + tax.gastos;
   const cuota = calcFrench(M, tasa, term);
   return {
     tipo: 'Arca',
-    detalle: `Arca · ${term} meses · Tasa ${(tasa*100).toFixed(0)}%`,
-    plan: `Arca ${term} meses`,
-    precio: price, inicial: initialAmount, comision, notaria, logistica, admin: 0,
-    gastoAdmin: 0, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
+    detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logistica/price*100).toFixed(1)}%`,
+    plan: `Arca ${esMenor ? 'Menor' : 'Mayor'} ${term} meses`,
+    precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminMensual,
+    gastoAdmin: adminMensual, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     montoFinanciar: M, plazo: term, tasa,
     cuotaMensual: cuota,
@@ -1610,10 +1708,12 @@ function updatePlanOptions() {
         <div class="rounded-lg bg-slate-50 p-3"><b>Plazo:</b> 48 meses (fijo)</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Cuota fija (francés)</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 0.50% sobre financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gastos Notaría:</b> $180 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> 10%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $180 (fijos)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Iniciales válidas:</b> 10% o 40%</div>
+        <div class="sm:col-span-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+          <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre la base imponible (PVP + 50% IVA). Inicial no válida = proforma bloqueada.
+        </div>
       </div>
-      <p class="text-xs text-slate-500 mt-2 italic">Fuente: PROVINCIAL.xls · Préstamo Cuota Fija Cálculo</p>
     `;
   } else if (state.planType === 'ctz') {
     wrap.innerHTML = `
@@ -1632,76 +1732,89 @@ function updatePlanOptions() {
         `).join('')}
       </div>
       <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gasto Administrativo:</b> 2.50% sobre financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 2.50% sobre financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gastos Notaría:</b> $200 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> 20%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Gasto Administrativo:</b> 1-2% (según plan)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 1-2% (según plan)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 (fijos)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> 50%</div>
       </div>
-      <p class="text-xs text-slate-500 mt-2 italic">Fuente: CTZ.xlsx · Amortización directa · IVA 16% sobre interés · IGTF 3% sobre transacción de cuota</p>
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
+        <b>Importante:</b> CTZ financia máximo 50% del valor del vehículo. Inicial obligatoria del 50%. Sistema alemán (cuota decreciente).
+      </div>
     `;
     wrap.querySelectorAll('input[name="ctzPlan"]').forEach(r => {
       r.addEventListener('change', e => { state.ctzPlanId = parseInt(e.target.value); updateLiveSummary(); });
     });
   } else if (state.planType === 'pivca') {
+    state.pivcaTerm = 24;
     wrap.innerHTML = `
-      <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Pivca:</label>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
-        ${PIVCA.plazosDisponibles.map(t => `
-          <label class="cursor-pointer">
-            <input type="radio" name="pivcaTerm" value="${t}" class="sr-only peer" ${state.pivcaTerm===t?'checked':''} />
-            <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
-              <p class="font-bold text-hyundai">${t} meses</p>
-              <p class="text-xs text-slate-500">Tasa 18%</p>
-              <p class="text-xs text-slate-500">C. Flat 5.0%</p>
-            </div>
-          </label>
-        `).join('')}
+      <label class="text-sm font-semibold text-slate-700">Plan Pivca:</label>
+      <div class="border-2 rounded-xl p-3 border-hyundai2 bg-blue-50 mt-2">
+        <p class="font-bold text-hyundai">24 meses fijo</p>
+        <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}% anual · Sistema francés</p>
+        <p class="text-xs text-slate-500">Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}% sobre financiado</p>
       </div>
       <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> 18.00%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> ${(PIVCA.TNA*100).toFixed(0)}%</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Cuota fija (francés)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 5.00%</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gastos Notaría:</b> $200 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro Vehículo:</b> 3% del financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Póliza de Vida:</b> 0.75% del financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> 50%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> ${(PIVCA.comisionFlat*100).toFixed(0)}%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $${PIVCA.notaria} (fijos)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro Vehículo:</b> ${(PIVCA.seguroVehicularPct*100).toFixed(1)}% del valor del vehículo</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro Vida:</b> ${(PIVCA.seguroVidaPct*100).toFixed(2)}% del monto financiado</div>
+        <div class="rounded-lg bg-slate-50 p-3 sm:col-span-2"><b>Inicial mínima:</b> 50% del PVP</div>
       </div>
-      <p class="text-xs text-slate-500 mt-2 italic">Fuente: Simulación Préstamo Pivca.xlsx</p>
     `;
-    wrap.querySelectorAll('input[name="pivcaTerm"]').forEach(r => {
-      r.addEventListener('change', e => { state.pivcaTerm = parseInt(e.target.value); updateLiveSummary(); });
-    });
   } else if (state.planType === 'v13') {
     const price = state.selectedVehicle?.price || 0;
-    const inicialLabel = price < ARCA.umbralPrecio ? '50%' : '75%';
     const esMenor = price < ARCA.umbralPrecio;
-    wrap.innerHTML = `
-      <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca:</label>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2 mt-2">
-        ${ARCA.plazosDisponibles.map(t => {
-          const tasa = esMenor ? ARCA.tasaMenor : ARCA.tasas[t];
-          return `
+    const inicialLabel = esMenor ? '50%' : '30%';
+    if (esMenor) {
+      // PLAN MENOR: 24 meses fijo, sin opciones
+      state.v13Term = 24;
+      wrap.innerHTML = `
+        <label class="text-sm font-semibold text-slate-700">Plan Arca Menor (&lt; $${ARCA.umbralPrecio.toLocaleString()}):</label>
+        <div class="border-2 rounded-xl p-3 border-hyundai2 bg-blue-50 mt-2">
+          <p class="font-bold text-hyundai">24 meses fijo</p>
+          <p class="text-xs text-slate-500">Tasa ${(ARCA.menor.tasa*100).toFixed(0)}% anual fija</p>
+          <p class="text-xs text-slate-500">Logística ${(ARCA.menor.logisticaPct*100).toFixed(0)}% flat</p>
+          <p class="text-xs text-slate-500">Admin ${(ARCA.menor.adminPct*100).toFixed(0)}% anual mensualizado</p>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
+          <div class="rounded-lg bg-slate-50 p-3"><b>Logística:</b> ${(ARCA.menor.logisticaPct*100).toFixed(0)}% flat sobre PVP</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Admin + Flat:</b> ${(ARCA.menor.adminPct*100).toFixed(0)}% + 5%</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
+        </div>
+      `;
+    } else {
+      // PLAN MAYOR: 36 o 48 meses
+      wrap.innerHTML = `
+        <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Mayor:</label>
+        <div class="grid sm:grid-cols-2 gap-2 mt-2">
+          ${ARCA.mayor.plazosDisponibles.map(t => {
+            const logistica = (ARCA.mayor.logisticaPct[t] * 100).toFixed(0);
+            const admin = (ARCA.mayor.adminPct[t] * 100).toFixed(0);
+            return `
           <label class="cursor-pointer">
             <input type="radio" name="v13Term" value="${t}" class="sr-only peer" ${state.v13Term===t?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${t} meses</p>
-              <p class="text-xs text-slate-500">Tasa ${(tasa*100).toFixed(0)}%${esMenor ? ' fija' : ''}</p>
-              <p class="text-xs text-slate-500">C. Flat 5.0%</p>
+              <p class="text-xs text-slate-500">Tasa ${(ARCA.mayor.tasa*100).toFixed(0)}% anual</p>
+              <p class="text-xs text-slate-500">Logística ${logistica}% + Admin ${admin}%</p>
             </div>
           </label>`;
-        }).join('')}
-      </div>
-      <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Cargo de logística:</b> 1.5% del valor</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>G. Administrativo + Com. Flat:</b> 5% unificado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Gastos Notaría:</b> $200 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
-      </div>
-      <p class="text-xs text-slate-500 mt-2 italic">Condiciones según valor del vehículo. &lt; $${ARCA.umbralPrecio.toLocaleString()}: 16% fijo. ≥ $${ARCA.umbralPrecio.toLocaleString()}: tasa variable por plazo.</p>
-    `;
-    wrap.querySelectorAll('input[name="v13Term"]').forEach(r => {
-      r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
-    });
+          }).join('')}
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
+          <div class="rounded-lg bg-slate-50 p-3"><b>Logística:</b> 5-6% según plazo</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Admin + Flat:</b> 6-7% + 5%</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
+          <div class="rounded-lg bg-slate-50 p-3"><b>Inicial mínima:</b> ${inicialLabel}</div>
+        </div>
+      `;
+      wrap.querySelectorAll('input[name="v13Term"]').forEach(r => {
+        r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
+      });
+    }
   }
 }
 
@@ -1727,10 +1840,17 @@ function updateLiveSummary() {
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();
   document.getElementById('initialMin').textContent = `Mínimo: ${(minPct*100).toFixed(0)}%`;
-  const warn = getInitialPct() < minPct;
-  document.getElementById('initialWarning').classList.toggle('hidden', !warn);
 
-  document.getElementById('btnQuote').disabled = warn;
+  const validation = validateInitial();
+  const warnEl = document.getElementById('initialWarning');
+  if (!validation.valid) {
+    warnEl.textContent = '⚠ ' + validation.message;
+    warnEl.classList.remove('hidden');
+  } else {
+    warnEl.classList.add('hidden');
+  }
+
+  document.getElementById('btnQuote').disabled = !validation.valid;
 }
 
 function renderFormSummary() {
@@ -2371,7 +2491,16 @@ function wireEvents() {
       tab.classList.add('active');
       state.planType = tab.dataset.plan;
       const minPct = getMinInitialPct();
-      state.initialValue = Math.max(20, minPct * 100);
+      // Provincial solo permite 10% o 40%; default a 10%
+      if (state.planType === 'provincial') {
+        state.initialValue = 10;
+      } else if (state.planType === 'ctz') {
+        state.initialValue = 50;  // CTZ exige 50%
+      } else if (state.planType === 'pivca') {
+        state.initialValue = 50;  // Pivca exige 50%
+      } else {
+        state.initialValue = Math.max(20, minPct * 100);
+      }
       document.getElementById('initialValue').value = state.initialValue;
       updatePlanOptions();
       updateLiveSummary();
@@ -2414,6 +2543,12 @@ function wireEvents() {
     const f = e.target;
     if (!f.checkValidity()) { f.reportValidity(); return; }
     if (!state.selectedVehicle) { alert('Selecciona un vehículo primero.'); return; }
+
+    const validation = validateInitial();
+    if (!validation.valid) {
+      alert('⚠ La inicial no es válida para este plan:\n\n' + validation.message);
+      return;
+    }
 
     const sel = document.getElementById('salespersonBranch');
     if (!sel.value) { alert('Selecciona un asesor.'); return; }

@@ -408,6 +408,7 @@
             <div class="flex justify-between"><span class="text-slate-500">Inicial (<span id="sumInitPct">30</span>%)</span><span class="font-semibold text-rose-600" id="sumInitial">-$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">IVA (16%)</span><span class="font-semibold" id="sumIVA">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">IGTF (3%)</span><span class="font-semibold" id="sumIGTF">$0.00</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Trámites y Gastos</span><span class="font-semibold" id="sumGastos">$0.00</span></div>
             <hr class="border-slate-200">
             <div class="flex justify-between text-hyundai font-bold text-base"><span>Monto a financiar</span><span id="sumFinanced">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Tasa aplicada</span><span class="font-semibold" id="sumRate">—</span></div>
@@ -1930,12 +1931,13 @@ function updateLiveSummary() {
   document.getElementById('summaryPlanName').textContent = getCurrentPlanName();
   const v = state.selectedVehicle;
   document.getElementById('summaryVehicleName').textContent = v ? v.name : '—';
-  document.getElementById('summaryVehiclePrice').textContent = v ? fmt(calc.precio) : '$0.00';
+  document.getElementById('summaryVehiclePrice').textContent = v ? fmt(calc.totalFiscal) : '$0.00';
   document.getElementById('sumPrice').textContent    = fmt(calc.precio);
   document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
   document.getElementById('sumInitPct').textContent  = (getInitialPct()*100).toFixed(1);
   document.getElementById('sumIVA').textContent    = fmt(calc.iva);
   document.getElementById('sumIGTF').textContent   = fmt(calc.igtf);
+  document.getElementById('sumGastos').textContent = fmt(calc.gastos);
   document.getElementById('sumFinanced').textContent = fmt(calc.montoFinanciar);
   document.getElementById('sumRate').textContent     = (calc.tasa*100).toFixed(2) + '% TNA';
   document.getElementById('sumTerm').textContent     = calc.plazo + ' meses';

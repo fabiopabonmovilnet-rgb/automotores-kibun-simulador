@@ -504,8 +504,8 @@
           <input id="salespersonPhone" type="tel" readonly placeholder="Se autocompleta"
                  class="mt-1 w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-600" />
         </div>
-        <div id="advisorLoadingHint" class="text-xs text-slate-500 italic">Conectando con Airtable...</div>
-        <div id="advisorErrorHint" class="text-xs text-rose-600 hidden">⚠ No se pudieron cargar los asesores. Verifique que el proxy serverless esté funcionando y las credenciales de Airtable estén configuradas.</div>
+        <div id="advisorLoadingHint" class="text-xs text-slate-500 italic">Cargando asesores...</div>
+        <div id="advisorErrorHint" class="text-xs text-rose-600 hidden">No se pudieron cargar los asesores. Verifique la conexion.</div>
 
         <hr class="border-slate-100">
         <div class="text-xs text-slate-500 leading-relaxed">
@@ -659,7 +659,7 @@ const PROVINCIAL = {
   // Solo se aprueban iniciales del 10% o 40% sobre (PVP + 50% IVA)
   allowedInitials: [0.10, 0.40],
   // Base imponible para Provincial: PVP + 50% del IVA
-  baseFormula: function(pvp, iva) { return pvp + iva * 0.50; },
+  baseFormula: function(pvp, iva) { return pvp; },
   sistema: 'frances'
 };
 
@@ -1112,7 +1112,7 @@ function validateInitial() {
     if (!is10 && !is40) {
       return {
         valid: false,
-        message: `Provincial solo aprueba iniciales del 10% o 40% sobre la base imponible ($${base.toLocaleString()}). Tu inicial ($${ia.toLocaleString()}) equivale al ${(pctBase*100).toFixed(1)}% de la base.`
+        message: `Provincial solo aprueba iniciales del 10% o 40% sobre el precio del vehiculo ($${base.toLocaleString()}). Tu inicial ($${ia.toLocaleString()}) equivale al ${(pctBase*100).toFixed(1)}%.`
       };
     }
     return { valid: true, message: '' };
@@ -1736,7 +1736,7 @@ function updatePlanOptions() {
         <div class="rounded-lg bg-slate-50 p-3"><b>Iniciales válidas:</b> 10% o 40%</div>
       </div>
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-        <p class="font-bold text-blue-800">Base Imponible (PVP Airtable): ${fmt(base)}</p>
+        <p class="font-bold text-blue-800">Base Imponible: ${fmt(base)}</p>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-white rounded p-2 border border-blue-100">
             <p class="font-semibold text-blue-700">Inicial 10%:</p>
@@ -1751,7 +1751,7 @@ function updatePlanOptions() {
         </div>
       </div>
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
-        <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre la base imponible. Inicial no válida = proforma bloqueada.
+        <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre el precio del vehiculo. Inicial no valida = proforma bloqueada.
       </div>
     `;
   } else if (state.planType === 'ctz') {
@@ -1778,7 +1778,7 @@ function updatePlanOptions() {
         }).join('')}
       </div>
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-        <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+        <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-white rounded p-2 border border-blue-100">
             <p class="font-semibold text-blue-700">Inicial obligatoria 50%:</p>
@@ -1818,7 +1818,7 @@ function updatePlanOptions() {
         <p class="text-xs text-slate-500">Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}% sobre financiado</p>
       </div>
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-        <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+        <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-white rounded p-2 border border-blue-100">
             <p class="font-semibold text-blue-700">Inicial obligatoria 50%:</p>
@@ -1902,7 +1902,7 @@ function updatePlanOptions() {
           }).join('')}
         </div>
         <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-          <p class="font-bold text-blue-800">PVP (Airtable): ${fmt(price)}</p>
+          <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
           <div class="grid grid-cols-2 gap-2">
             <div class="bg-white rounded p-2 border border-blue-100">
               <p class="font-semibold text-blue-700">Inicial obligatoria 30%:</p>
@@ -2032,7 +2032,7 @@ async function fetchAsesores() {
     });
 
     if (records.length === 0) {
-      sel.innerHTML = `<option value="">— No hay asesores en Airtable —</option>`;
+      sel.innerHTML = `<option value="">— No hay asesores disponibles —</option>`;
     }
     loadingHint.classList.add('hidden');
     console.info('[fetchAsesores] ' + records.length + ' asesores cargados en el DOM');
@@ -2811,9 +2811,9 @@ function showSuccessModal(proformaCode, leadOk, pdfOk, leadErr) {
   if (!leadOk) {
     errorDetail = `
       <div class="text-left bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4 text-sm">
-        <p class="font-bold text-rose-800 mb-2">El lead no se guardo en Airtable</p>
+        <p class="font-bold text-rose-800 mb-2">El lead no se pudo guardar</p>
         <p class="text-rose-700 text-xs mb-2">Detalle: <span class="font-mono">${(leadErr || '').substring(0, 200)}</span></p>
-        <p class="text-rose-700 text-xs">Verifica que las credenciales de Airtable estén configuradas correctamente en las variables de entorno del servidor.</p>
+        <p class="text-rose-700 text-xs">Verifique la conexion e intente de nuevo.</p>
       </div>
     `;
   }
@@ -2835,7 +2835,7 @@ function showSuccessModal(proformaCode, leadOk, pdfOk, leadErr) {
 
       <p class="text-sm text-slate-600 mb-4 text-center">
         ${pdfOk ? 'Su PDF se descargo correctamente.' : 'No se pudo generar el PDF.'}
-        ${leadOk ? 'Y el lead fue registrado en Airtable.' : ''}
+        ${leadOk ? 'Y el lead fue registrado correctamente.' : ''}
       </p>
 
       <div class="flex flex-col sm:flex-row gap-2">
@@ -2892,7 +2892,7 @@ async function init() {
   };
 
   try {
-    setProgress(40, 'Cargando catálogo de vehículos desde Airtable…');
+    setProgress(40, 'Cargando catalogo de vehiculos...');
     await fetchVehiculos();
     renderVehicleGrid();
     console.info('[init] Catalogo renderizado en el DOM');
@@ -2900,7 +2900,7 @@ async function init() {
     setProgress(70, 'Cargando equipo de asesores comerciales…');
     await fetchAsesores();
 
-    setProgress(85, 'Verificando esquema de tablas en Airtable…');
+    setProgress(85, 'Verificando esquema de tablas...');
     try { await ensureVehiculosSchema(); } catch (e) { console.warn('[init] ensureVehiculosSchema fallo (no critico).'); }
     try { await ensureLeadsSchema(); } catch (e) { console.warn('[init] ensureLeadsSchema fallo (no critico).'); }
     try { await ensureAsesoresSchema(); } catch (e) { console.warn('[init] ensureAsesoresSchema fallo (no critico).'); }

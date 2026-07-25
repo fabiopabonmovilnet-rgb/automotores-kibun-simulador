@@ -1775,11 +1775,15 @@ async function fetchAsesores() {
   const loadingHint = document.getElementById('advisorLoadingHint');
   const errorHint = document.getElementById('advisorErrorHint');
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(API_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operation: 'fetchAsesores' })
+      body: JSON.stringify({ operation: 'fetchAsesores' }),
+      signal: ctrl.signal
     });
+    clearTimeout(t);
     if (!res.ok) throw new Error('Proxy respondio ' + res.status);
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Error del proxy');
@@ -2017,11 +2021,11 @@ async function saveLead(payload) {
 
 // === AUTO-CREAR COLUMNAS EN LA TABLA Vehiculos ===
 var VEHICULOS_PRICING_FIELDS = [
-  { name: 'PVP',            type: 'Number', options: { precision: 2 } },
-  { name: 'IVA_16',         type: 'Number', options: { precision: 2 } },
-  { name: 'IGTF_3',         type: 'Number', options: { precision: 2 } },
-  { name: 'Tramites_Gastos', type: 'Number', options: { precision: 2 } },
-  { name: 'Total',          type: 'Number', options: { precision: 2 } }
+  { name: 'PVP',            type: 'Number' },
+  { name: 'IVA_16',         type: 'Number' },
+  { name: 'IGTF_3',         type: 'Number' },
+  { name: 'Tramites_Gastos', type: 'Number' },
+  { name: 'Total',          type: 'Number' }
 ];
 var VEHICULOS_COLOR_FIELDS = COLOR_NAMES.map(function(cName) {
   var info = VEHICLE_COLORS.find(function(c) { return c.name === cName; });
@@ -2029,9 +2033,13 @@ var VEHICULOS_COLOR_FIELDS = COLOR_NAMES.map(function(cName) {
 });
 async function ensureVehiculosSchema() {
   try {
+    var ctrl = new AbortController();
+    var t = setTimeout(function() { ctrl.abort(); }, 10000);
     var metaRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables', {
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY }
+      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY },
+      signal: ctrl.signal
     });
+    clearTimeout(t);
     if (!metaRes.ok) {
       console.warn('[ensureVehiculosSchema] Meta API respondio ' + metaRes.status + '.');
       console.warn('[ensureVehiculosSchema] Crea MANUALMENTE estas columnas en la tabla Vehiculos de Airtable:');
@@ -2050,11 +2058,15 @@ async function ensureVehiculosSchema() {
       console.info('%c[ensureVehiculosSchema] OK columnas ya existen', 'color:#10b981;font-weight:bold;');
       return;
     }
+    var ctrl2 = new AbortController();
+    var t2 = setTimeout(function() { ctrl2.abort(); }, 10000);
     var patchRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables/' + vehTable.id, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: allMissing })
+      body: JSON.stringify({ fields: allMissing }),
+      signal: ctrl2.signal
     });
+    clearTimeout(t2);
     if (patchRes.ok) {
       console.info('%c[ensureVehiculosSchema] OK columnas creadas: ' + allMissing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
     } else {
@@ -2584,6 +2596,11 @@ async function init() {
     console.error('[init] Error:', err);
     setProgress(0, 'Error al cargar datos. Revisa la consola.');
     bootMsg.classList.add('text-rose-300');
+    setTimeout(() => {
+      bootOverlay.classList.add('hidden');
+      main.style.pointerEvents = '';
+      main.style.opacity = '';
+    }, 2000);
   }
 }
 

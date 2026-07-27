@@ -1149,9 +1149,11 @@ function validateInitial() {
         message: `Arca ${esMenor ? 'Menor' : 'Mayor'} requiere una inicial mínima del ${(minInit*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
       };
     }
-    if (price >= ARCA.umbralPrecio && state.v13Term < 36) {
-      state.v13Term = 36;
-      updatePlanOptions();
+    if (!esMenor && state.v13Term < 36) {
+      return {
+        valid: false,
+        message: `Vehículos desde $${ARCA.umbralPrecio.toLocaleString()} usan Arca Mayor (plazos de 36-48 meses). Selecciona un plazo de 36 o 48 meses.`
+      };
     }
     return { valid: true, message: '' };
   }
@@ -1897,7 +1899,8 @@ function updatePlanOptions() {
         r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
       });
     } else {
-      // PLAN MAYOR: 36 o 48 meses
+      // PLAN MAYOR: 36 o 48 meses — force term to valid range
+      if (state.v13Term < 36) state.v13Term = 36;
       const init30 = (price * 0.30).toFixed(2);
       const fin70 = (price * 0.70).toFixed(2);
       wrap.innerHTML = `

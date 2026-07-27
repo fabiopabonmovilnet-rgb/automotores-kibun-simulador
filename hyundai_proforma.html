@@ -731,19 +731,16 @@ const ARCA = {
     adminPct: 0.05,         // 5% anual aplicado mensualmente
     plazos: [
       { meses: 12, tasa: 0.14 },
-      { meses: 24, tasa: 0.16 },
-      { meses: 36, tasa: 0.18 },
-      { meses: 48, tasa: 0.20 }
+      { meses: 24, tasa: 0.16 }
     ]
   },
   // PLAN MAYOR (vehículos >= $30,000)
   mayor: {
     inicialMin: 0.30,       // hasta 70% financiado
     tasa: 0.14,             // 14% anual fijo
-    plazo: 36,              // 36 meses default (36-48 disponible)
-    logisticaPct: { 36: 0.05, 48: 0.06 },  // 5% o 6% según plazo
-    adminPct: { 36: 0.06, 48: 0.07 },      // 6% o 7% anual mensualizado
-    plazosDisponibles: [36, 48]
+    logisticaPct: { 12: 0.04, 24: 0.05, 36: 0.05, 48: 0.06 },
+    adminPct: { 12: 0.05, 24: 0.05, 36: 0.06, 48: 0.07 },
+    plazosDisponibles: [12, 24, 36, 48]
   },
   notaria: 200,
   sistema: 'frances'
@@ -1142,12 +1139,6 @@ function validateInitial() {
       return {
         valid: false,
         message: `Arca ${esMenor ? 'Menor' : 'Mayor'} requiere una inicial mínima del ${(minInit*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
-      };
-    }
-    if (!esMenor && state.v13Term < 36) {
-      return {
-        valid: false,
-        message: `Vehículos desde $${ARCA.umbralPrecio.toLocaleString()} usan Arca Mayor (plazos de 36-48 meses). Selecciona un plazo de 36 o 48 meses.`
       };
     }
     return { valid: true, message: '' };
@@ -1895,14 +1886,13 @@ function updatePlanOptions() {
         r.addEventListener('change', e => { state.v13Term = parseInt(e.target.value); updateLiveSummary(); });
       });
     } else {
-      // PLAN MAYOR: 36 o 48 meses — force term to valid range
-      if (state.v13Term < 36) state.v13Term = 36;
+      // PLAN MAYOR: 12, 24, 36 o 48 meses
       const init30 = (price * 0.30).toFixed(2);
       const fin70 = (price * 0.70).toFixed(2);
       wrap.innerHTML = `
         <div class="rounded-lg bg-blue-50 border border-blue-300 p-3 mb-3 text-xs text-blue-800">
           <p class="font-bold">🔒 Arca Mayor activo — Vehículos desde $${ARCA.umbralPrecio.toLocaleString()}</p>
-          <p class="mt-1">Financiamiento hasta 70% del valor del vehículo. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
+          <p class="mt-1">Financiamiento hasta 70% del valor del vehículo. Plazos: 12, 24, 36, 48 meses. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
         </div>
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Mayor:</label>
         <div class="grid sm:grid-cols-2 gap-2 mt-2">

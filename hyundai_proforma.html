@@ -409,13 +409,16 @@
             <div class="flex justify-between"><span class="text-slate-500">IVA (16%)</span><span class="font-semibold" id="sumIVA">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">IGTF (3%)</span><span class="font-semibold" id="sumIGTF">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Trámites y Gastos</span><span class="font-semibold" id="sumGastos">$0.00</span></div>
+            <div class="flex justify-between hidden" id="sumCostosRow"><span class="text-slate-500 font-medium">Costos adicionales contado</span><span class="font-semibold text-amber-600" id="sumCostosContado">$0.00</span></div>
+            <div class="flex justify-between hidden" id="sumTotalContadoRow"><span class="text-slate-700 font-bold">Total a pagar de contado</span><span class="font-bold text-rose-600" id="sumTotalContado">$0.00</span></div>
             <hr class="border-slate-200">
             <div class="flex justify-between text-hyundai font-bold text-base"><span>Monto a financiar</span><span id="sumFinanced">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Tasa aplicada</span><span class="font-semibold" id="sumRate">—</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Plazo</span><span class="font-semibold" id="sumTerm">—</span></div>
             <div class="mt-4 rounded-xl bg-hyundai text-white p-4 text-center">
-              <p class="text-[11px] uppercase tracking-wider opacity-80">Cuota mensual estimada</p>
+              <p class="text-[11px] uppercase tracking-wider opacity-80" id="sumCuotaLabel">Cuota mensual estimada</p>
               <p class="text-3xl font-extrabold leading-tight" id="sumCuota">$0.00</p>
+              <p class="text-[10px] opacity-70 mt-1 hidden" id="sumCuotaNote"></p>
             </div>
             <p class="text-[10px] text-slate-400 text-center">*Cálculo referencial. Sujeto a aprobación crediticia.</p>
           </div>
@@ -1339,15 +1342,18 @@ function calcProvincial(price, initialAmount, gastos = 0) {
 
 // === MOTOR CTZ ===
 // Max 50% financiado (inicial 50%). Sistema alemán (cuota decreciente).
+// El financiado es SOLO el valor neto del vehículo. IVA, IGTF, Gastos, Comisión y Notaría se pagan de contado con la inicial.
 function calcCTZ(price, initialAmount, planId, gastos = 0) {
   const plan = CTZ_PLANES.find(p => p.id === planId);
-  const M_base = price - initialAmount;     // monto base a financiar
+  const M_base = price - initialAmount;     // monto neto a financiar (solo valor del vehículo)
   const gastoAdmin = M_base * plan.gastoAdmin;
   const comisionFlat = M_base * plan.comisionFlat;
   const notaria = CTZ.notaria;
   const comision = gastoAdmin + comisionFlat;
   const tax = calcularDesglose(price, gastos);
-  const M = M_base + comision + notaria + tax.iva + tax.igtf + tax.gastos;
+  // Costos adicionales se pagan de contado (NO se suman al financiado)
+  const costosContado = comision + notaria + tax.iva + tax.igtf + tax.gastos;
+  const M = M_base;  // financiado = solo el neto del vehículo
   const sched = calcGermanSchedule(M, plan.tasa, plan.meses);
   return {
     tipo: 'CTZ',
@@ -1355,6 +1361,7 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
     plan: plan.nombre,
     precio: price, inicial: initialAmount, comision, gastoAdmin, comisionFlat, notaria, logistica: 0, admin: 0,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
+    costosContado,
     montoFinanciar: M, plazo: plan.meses, tasa: plan.tasa,
     cuotaMensual: sched[0].cuota,
     sistema: 'aleman',
@@ -1364,16 +1371,17 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
 
 // === MOTOR PIVCA ===
 // 50% financiado. 24 meses fijo. TNA 18%.
-// Comisión flat 5% sobre monto financiado.
-// Seguros: vehicular 3% del PVP + vida 0.75% del monto financiado.
+// El financiado es SOLO el valor neto del vehículo. Comisión, Notaría, Seguros, IVA, IGTF y Gastos se pagan de contado.
 function calcPivca(price, initialAmount, term, gastos = 0) {
   const M_base = price - initialAmount;
   const comision = M_base * PIVCA.comisionFlat;
   const notaria = PIVCA.notaria;
-  const seguroVehiculo = price * PIVCA.seguroVehicularPct;       // 3% del valor del vehículo
-  const polizaVida = M_base * PIVCA.seguroVidaPct;               // 0.75% del monto financiado
+  const seguroVehiculo = price * PIVCA.seguroVehicularPct;
+  const polizaVida = M_base * PIVCA.seguroVidaPct;
   const tax = calcularDesglose(price, gastos);
-  const M = M_base + comision + notaria + seguroVehiculo + polizaVida + tax.iva + tax.igtf + tax.gastos;
+  // Costos adicionales se pagan de contado (NO se suman al financiado)
+  const costosContado = comision + notaria + seguroVehiculo + polizaVida + tax.iva + tax.igtf + tax.gastos;
+  const M = M_base;  // financiado = solo el neto del vehículo
   const cuota = calcFrench(M, PIVCA.TNA, term);
   return {
     tipo: 'Pivca',
@@ -1382,6 +1390,7 @@ function calcPivca(price, initialAmount, term, gastos = 0) {
     precio: price, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
     gastoAdmin: 0, comisionFlat: comision, seguroVehiculo, polizaVida,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
+    costosContado,
     montoFinanciar: M, plazo: term, tasa: PIVCA.TNA,
     cuotaMensual: cuota,
     sistema: 'frances',
@@ -1942,6 +1951,30 @@ function updateLiveSummary() {
   document.getElementById('sumRate').textContent     = (calc.tasa*100).toFixed(2) + '% TNA';
   document.getElementById('sumTerm').textContent     = calc.plazo + ' meses';
   document.getElementById('sumCuota').textContent     = fmt(calc.cuotaMensual);
+  const cuotaLabel = document.getElementById('sumCuotaLabel');
+  const cuotaNote  = document.getElementById('sumCuotaNote');
+  if (calc.sistema === 'aleman') {
+    cuotaLabel.textContent = 'Cuota Mes 1 (Inicial)';
+    cuotaNote.textContent = 'Sistema alemán: cuotas decrecientes mes a mes';
+    cuotaNote.classList.remove('hidden');
+  } else {
+    cuotaLabel.textContent = 'Cuota mensual estimada';
+    cuotaNote.classList.add('hidden');
+  }
+
+  const costosRow = document.getElementById('sumCostosRow');
+  const costosVal = document.getElementById('sumCostosContado');
+  const contadoRow = document.getElementById('sumTotalContadoRow');
+  const contadoVal = document.getElementById('sumTotalContado');
+  if (calc.costosContado && calc.costosContado > 0) {
+    costosVal.textContent = fmt(calc.costosContado);
+    costosRow.classList.remove('hidden');
+    contadoVal.textContent = fmt(calc.inicial + calc.costosContado);
+    contadoRow.classList.remove('hidden');
+  } else {
+    costosRow.classList.add('hidden');
+    contadoRow.classList.add('hidden');
+  }
 
   const equiv = state.initialMode === 'pct' ? (v.price * state.initialValue / 100) : state.initialValue;
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
@@ -1973,8 +2006,12 @@ function renderFormSummary() {
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Inicial</p><p class="font-semibold">${fmt(calc.inicial)} (${(getInitialPct()*100).toFixed(1)}%)</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">A financiar</p><p class="font-semibold">${fmt(calc.montoFinanciar)}</p></div>
-    <div class="rounded-lg bg-hyundai text-white p-3 sm:col-span-2"><p class="text-[10px] uppercase opacity-80">Cuota estimada</p><p class="text-2xl font-extrabold">${fmt(calc.cuotaMensual)} / mes</p></div>
-  `;
+    ${calc.costosContado && calc.costosContado > 0 ? `<div class="rounded-lg bg-amber-50 p-3 sm:col-span-2"><p class="text-[10px] uppercase text-amber-600">Costos adicionales de contado</p><p class="font-semibold text-amber-700">${fmt(calc.costosContado)}</p><p class="text-[9px] text-amber-500 mt-0.5">Comisión + Notaría + IVA + IGTF + Gastos — se pagan junto con la inicial</p></div>` : ''}
+    <div class="rounded-lg bg-hyundai text-white p-3 sm:col-span-2">
+      <p class="text-[10px] uppercase opacity-80">${calc.sistema === 'aleman' ? 'Cuota Mes 1 (Inicial)' : 'Cuota estimada'}</p>
+      <p class="text-2xl font-extrabold">${fmt(calc.cuotaMensual)} / mes</p>
+      ${calc.sistema === 'aleman' ? '<p class="text-[10px] opacity-70 mt-1">Sistema alemán: cuotas decrecientes mes a mes</p>' : ''}
+    </div>`;
 }
 
 function goToStep(n) {

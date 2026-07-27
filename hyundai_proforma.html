@@ -1418,9 +1418,10 @@ function calcArca(price, initialAmount, term, gastos = 0) {
   const adminMensual = M_base * (adminPctAnual / 12);
   const comision = M_base * 0.05;
   const tax = calcularDesglose(price, gastos);
-  const costosContado = notaria + logistica + comision + adminMensual + tax.iva + tax.igtf + tax.gastos;
-  const M = M_base;  // financiado = solo el neto del vehículo
-  const cuota = calcFrench(M, tasa, term);
+  const costosContado = notaria + logistica + comision + tax.iva + tax.igtf + tax.gastos;
+  const M = M_base;
+  const cuotaBase = calcFrench(M, tasa, term);
+  const cuota = cuotaBase + adminMensual;
   return {
     tipo: 'Arca',
     detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logisticaPct*100).toFixed(1)}%`,
@@ -1855,7 +1856,7 @@ function updatePlanOptions() {
           <p class="mt-1">Financiamiento hasta 50% del valor del vehículo. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
         </div>
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Menor (&lt; $${ARCA.umbralPrecio.toLocaleString()}):</label>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           ${ARCA.menor.plazos.map(p => {
             const v = state.selectedVehicle;
             const price = v ? v.price : 0;
@@ -1895,7 +1896,7 @@ function updatePlanOptions() {
           <p class="mt-1">Financiamiento hasta 70% del valor del vehículo. Plazos: 12, 24, 36, 48 meses. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
         </div>
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Mayor:</label>
-        <div class="grid sm:grid-cols-2 gap-2 mt-2">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           ${ARCA.mayor.plazosDisponibles.map(t => {
             const logisticaPct = ARCA.mayor.logisticaPct[t];
             const adminPct = ARCA.mayor.adminPct[t];

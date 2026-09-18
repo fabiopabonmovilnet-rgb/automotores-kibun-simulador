@@ -1776,8 +1776,8 @@ function updatePlanOptions() {
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${p.meses} meses</p>
               <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}% anual</p>
-              <p class="text-xs text-slate-500">Flat ${(p.comisionFlat*100).toFixed(1).replace('.',',')}%</p>
-              <p class="text-xs text-slate-500">Admin ${(p.gastoAdmin*100).toFixed(1).replace('.',',')}%</p>
+              <p class="text-xs text-slate-500">Flat: ${(p.comisionFlat*100).toFixed(1).replace('.',',')}% (<span id="ctzFlatUsd-${p.id}">${fmt(Math.max(0, price - getInitialAmount()) * p.comisionFlat)}</span>)</p>
+              <p class="text-xs text-slate-500">Admin: ${(p.gastoAdmin*100).toFixed(1).replace('.',',')}% (<span id="ctzAdminUsd-${p.id}">${fmt(Math.max(0, price - getInitialAmount()) * p.gastoAdmin)}</span>)</p>
             </div>
           </label>`;
         }).join('')}
@@ -1797,7 +1797,7 @@ function updatePlanOptions() {
       </div>
       <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
         <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Alemán (cuota decreciente)</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Francés (cuota fija + IVA/IGTF por cuota)</div>
       </div>
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
         <b>Importante:</b> CTZ financia máximo 50%. Inicial obligatoria del 50%. IVA 16% sobre interés + IGTF 3%.
@@ -1979,6 +1979,17 @@ function updateLiveSummary() {
   } else {
     cuotaLabel.textContent = 'Cuota mensual estimada';
     cuotaNote.classList.add('hidden');
+  }
+
+  // Tarjetas CTZ: montos Flat 3% y Admin 2% sobre el Monto a financiar actual
+  if (state.planType === 'ctz' && v) {
+    const fin = Math.max(0, v.price - getInitialAmount());
+    CTZ_PLANES.forEach(p => {
+      const elF = document.getElementById('ctzFlatUsd-' + p.id);
+      const elA = document.getElementById('ctzAdminUsd-' + p.id);
+      if (elF) elF.textContent = fmt(fin * p.comisionFlat);
+      if (elA) elA.textContent = fmt(fin * p.gastoAdmin);
+    });
   }
 
   const equiv = state.initialMode === 'pct' ? (v.price * state.initialValue / 100) : state.initialValue;

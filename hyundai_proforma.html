@@ -709,15 +709,15 @@ const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.50, inicialMax: 0.50, notaria
 
 const PIVCA = {
   nombre: 'Pivca',
-  TNA: 0.18, plazo: 24, comisionFlat: 0.05,
+  TNA: 0.18, plazo: 24, comisionFlat: 0.04,
   // Inicial mínima 50%. Financia hasta 50% del valor del vehículo.
   inicialMin: 0.50, inicialMaxSugerida: 0.50,
   notaria: 200,
-  // Comisiones: 5% total sobre el monto financiado (flat + admin + notaría)
+  // Comisiones: Flat 4% sobre el monto financiado (pagada de contado)
   // Seguros: vehicular 3% del valor del vehículo, vida 0.75% del monto financiado
   seguroVehicularPct: 0.03,   // sobre el valor del vehículo
   seguroVidaPct: 0.0075,      // sobre el monto financiado
-  sistema: 'frances', plazosDisponibles: [24]
+  sistema: 'frances', plazosDisponibles: [6, 12, 18, 24]
 };
 
 // === ARCA: Plan Menor (<$30k) y Plan Mayor (>=$30k) ===
@@ -1364,7 +1364,7 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
 }
 
 // === MOTOR PIVCA ===
-// 50% financiado. 24 meses fijo. TNA 18%.
+// 50% financiado. Plazos 6-12-18-24 meses. TNA 18%. Flat 4%.
 // El financiado es SOLO el valor neto del vehículo. Comisión, Notaría, Seguros, IVA, IGTF y Gastos se pagan de contado.
 function calcPivca(price, initialAmount, term, gastos = 0) {
   const M_base = price - initialAmount;
@@ -1806,7 +1806,7 @@ function updatePlanOptions() {
       r.addEventListener('change', e => { state.ctzPlanId = parseInt(e.target.value); updateLiveSummary(); });
     });
   } else if (state.planType === 'pivca') {
-    state.pivcaTerm = 24;
+    if (!PIVCA.plazosDisponibles.includes(state.pivcaTerm)) state.pivcaTerm = 24;
     const v = state.selectedVehicle;
     const price = v ? v.price : 0;
     const init50 = (price * 0.50).toFixed(2);
@@ -1815,11 +1815,19 @@ function updatePlanOptions() {
     const seguroVida = (price * 0.50 * PIVCA.seguroVidaPct).toFixed(2);
     const comisionUsd = (price * 0.50 * PIVCA.comisionFlat).toFixed(2);
     wrap.innerHTML = `
-      <label class="text-sm font-semibold text-slate-700">Plan Pivca:</label>
-      <div class="border-2 rounded-xl p-3 border-hyundai2 bg-blue-50 mt-2">
-        <p class="font-bold text-hyundai">24 meses fijo</p>
-        <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}% anual · Sistema francés</p>
-        <p class="text-xs text-slate-500">Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}% sobre financiado</p>
+      <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Pivca:</label>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+        ${PIVCA.plazosDisponibles.map(t => {
+          return `
+          <label class="cursor-pointer">
+            <input type="radio" name="pivcaPlan" value="${t}" class="sr-only peer" ${state.pivcaTerm===t?'checked':''} />
+            <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
+              <p class="font-bold text-hyundai">${t} meses</p>
+              <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}%</p>
+              <p class="text-xs text-slate-500">Sistema francés</p>
+            </div>
+          </label>`;
+        }).join('')}
       </div>
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
         <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
@@ -1835,12 +1843,18 @@ function updatePlanOptions() {
         </div>
       </div>
       <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
-        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vehículo 3%:</b> ${fmt(seguroVeh)}</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vida 0.75%:</b> ${fmt(seguroVida)}</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión flat 5%:</b> ${fmt(comisionUsd)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vehículo ${(PIVCA.seguroVehicularPct*100).toFixed(0)}%:</b> ${fmt(seguroVeh)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vida ${(PIVCA.seguroVidaPct*100).toFixed(2)}%:</b> ${fmt(seguroVida)}</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}%:</b> ${fmt(comisionUsd)}</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
       </div>
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
+        <b>Importante:</b> Pivca financia máximo 50%. Inicial obligatoria del 50%. TNA 18% anual · Sistema francés (cuota fija). Comisión flat, seguros, notaría, IVA, IGTF y gastos de trámite se pagan de contado junto con la inicial.
+      </div>
     `;
+    wrap.querySelectorAll('input[name="pivcaPlan"]').forEach(r => {
+      r.addEventListener('change', e => { state.pivcaTerm = parseInt(e.target.value); updateLiveSummary(); });
+    });
   } else if (state.planType === 'v13') {
     const price = state.selectedVehicle?.price || 0;
     const esMenor = price < ARCA.umbralPrecio;

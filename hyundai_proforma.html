@@ -699,13 +699,13 @@ const aliasNombres = {
 };
 
 const CTZ_PLANES = [
-  { id: 1, meses: 12, tasa: 0.12, gastoAdmin: 0.01, comisionFlat: 0.03, nombre: 'CTZ Plan 12 meses' },
-  { id: 2, meses: 18, tasa: 0.16, gastoAdmin: 0.015, comisionFlat: 0.03, nombre: 'CTZ Plan 18 meses' },
+  { id: 1, meses: 12, tasa: 0.12, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 12 meses' },
+  { id: 2, meses: 18, tasa: 0.16, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 18 meses' },
   { id: 3, meses: 24, tasa: 0.18, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 24 meses' },
   { id: 4, meses: 36, tasa: 0.25, gastoAdmin: 0.02, comisionFlat: 0.03, nombre: 'CTZ Plan 36 meses' }
 ];
-// Financia hasta 50% del PVP. Inicial obligatoria: 50%.
-const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.50, inicialMax: 0.50, notaria: 200, sistema: 'aleman' };
+// Financia hasta 50% del PVP. Inicial obligatoria: 50%. Flat 3% + Admin 2% sobre el financiado (pago de contado).
+const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.50, inicialMax: 0.50, notaria: 200, sistema: 'frances' };
 
 const PIVCA = {
   nombre: 'Pivca',
@@ -1291,19 +1291,21 @@ function calcFrench(M, annualRate, n) {
   return M * (i * pow) / (pow - 1);
 }
 
-// Amortización alemana (cuota decreciente, capital constante)
-function calcGermanSchedule(M, annualRate, n) {
+// Amortización CTZ — Sistema Francés (cuota fija, saldos decrecientes IPMT/PPMT).
+// IVA 16% sobre el interés e IGTF 3% adicionados a cada cuota mensual.
+function calcCTZSchedule(M, annualRate, n) {
   const i = annualRate / 12;
-  const capital = M / n;
+  const cuotaBase = calcFrench(M, annualRate, n);
   let bal = M;
   const sched = [];
   for (let k = 1; k <= n; k++) {
     const interest = bal * i;
+    const capital = cuotaBase - interest;
     const ivaOnInterest = interest * CTZ.IVA;
     const subtotal = capital + interest + ivaOnInterest;
     const igtf = subtotal * CTZ.IGTF;
     const cuota = subtotal + igtf;
-    sched.push({ k, capital, interest, ivaOnInterest, igtf, cuota, saldo: bal - capital });
+    sched.push({ k, capital, interest, ivaOnInterest, igtf, cuota, saldo: Math.max(bal - capital, 0) });
     bal -= capital;
   }
   return sched;
@@ -1335,8 +1337,9 @@ function calcProvincial(price, initialAmount, gastos = 0) {
 }
 
 // === MOTOR CTZ ===
-// Max 50% financiado (inicial 50%). Sistema alemán (cuota decreciente).
-// El financiado es SOLO el valor neto del vehículo. IVA, IGTF, Gastos, Comisión y Notaría se pagan de contado con la inicial.
+// Max 50% financiado (inicial 50%). Sistema francés (cuota fija, saldos decrecientes IPMT/PPMT).
+// Flat 3% y Admin 2% se calculan sobre el monto financiado y se pagan de contado con la inicial.
+// IVA 16% sobre el interés + IGTF 3% se suman a cada cuota mensual.
 function calcCTZ(price, initialAmount, planId, gastos = 0) {
   const plan = CTZ_PLANES.find(p => p.id === planId);
   const M_base = price - initialAmount;     // monto neto a financiar (solo valor del vehículo)
@@ -1348,7 +1351,7 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
   // Costos adicionales se pagan de contado (NO se suman al financiado)
   const costosContado = comision + notaria + tax.iva + tax.igtf + tax.gastos;
   const M = M_base;  // financiado = solo el neto del vehículo
-  const sched = calcGermanSchedule(M, plan.tasa, plan.meses);
+  const sched = calcCTZSchedule(M, plan.tasa, plan.meses);
   return {
     tipo: 'CTZ',
     detalle: `CTZ Plan ${plan.meses} meses · Tasa ${(plan.tasa*100).toFixed(0)}% · Admin ${(plan.gastoAdmin*100).toFixed(1)}% + Flat ${(plan.comisionFlat*100).toFixed(1)}%`,
@@ -1358,7 +1361,7 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
     costosContado,
     montoFinanciar: M, plazo: plan.meses, tasa: plan.tasa,
     cuotaMensual: sched[0].cuota,
-    sistema: 'aleman',
+    sistema: 'frances',
     schedule: sched
   };
 }

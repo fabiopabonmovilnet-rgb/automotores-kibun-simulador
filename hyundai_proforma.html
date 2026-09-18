@@ -1770,16 +1770,14 @@ function updatePlanOptions() {
       <label class="text-sm font-semibold text-slate-700">Selecciona un plan CTZ:</label>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
         ${CTZ_PLANES.map(p => {
-          const adminUsd = (price * 0.50 * p.gastoAdmin).toFixed(0);
-          const flatUsd = (price * 0.50 * p.comisionFlat).toFixed(0);
           return `
           <label class="cursor-pointer">
             <input type="radio" name="ctzPlan" value="${p.id}" class="sr-only peer" ${state.ctzPlanId===p.id?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${p.meses} meses</p>
-              <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}%</p>
-              <p class="text-xs text-slate-500">Admin ${fmt(adminUsd)}</p>
-              <p class="text-xs text-slate-500">Flat ${fmt(flatUsd)}</p>
+              <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}% anual</p>
+              <p class="text-xs text-slate-500">Flat ${(p.comisionFlat*100).toFixed(1).replace('.',',')}%</p>
+              <p class="text-xs text-slate-500">Admin ${(p.gastoAdmin*100).toFixed(1).replace('.',',')}%</p>
             </div>
           </label>`;
         }).join('')}

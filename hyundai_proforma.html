@@ -1397,7 +1397,7 @@ function calcPivca(price, initialAmount, term, gastos = 0) {
 
 // === MOTOR ARCA ===
 // Plan Menor (<$30k): 50% init, 12-48m, logística 5% flat + admin 5% anual mensualizado.
-// Plan Mayor (>=$30k): 30% init, 36-48m, logística 5-6% + admin 6-7% anual mensualizado.
+// Plan Mayor (>=$30k): 30% init, 36-48m, logística 5-6% + admin 6-7% anual (pago de contado único).
 function calcArca(price, initialAmount, term, gastos = 0) {
   const esMenor = price < ARCA.umbralPrecio;
   const plan = esMenor ? ARCA.menor : ARCA.mayor;
@@ -1418,19 +1418,20 @@ function calcArca(price, initialAmount, term, gastos = 0) {
   }
 
   const logistica = price * logisticaPct;
-  const adminMensual = M_base * (adminPctAnual / 12);
-  const comision = M_base * 0.05;
+  const adminCash = price * adminPctAnual;      // gastos admin: % anual sobre el valor del vehículo (pago de contado)
+  const comision = M_base * 0.05;               // comisión flat 5% sobre el monto financiado
   const tax = calcularDesglose(price, gastos);
-  const costosContado = notaria + logistica + comision + tax.iva + tax.igtf + tax.gastos;
+  // Costos de contado: notaría + logística + admin + comisión flat + impuestos.
+  // NADA se suma al capital a financiar ni a la cuota mensual.
+  const costosContado = notaria + logistica + adminCash + comision + tax.iva + tax.igtf + tax.gastos;
   const M = M_base;
-  const cuotaBase = calcFrench(M, tasa, term);
-  const cuota = cuotaBase + adminMensual;
+  const cuota = calcFrench(M, tasa, term);      // cuota francesa pura (sin admin ni logística)
   return {
     tipo: 'Arca',
     detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logisticaPct*100).toFixed(1)}%`,
     plan: `Arca ${esMenor ? 'Menor' : 'Mayor'} ${term} meses`,
-    precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminMensual,
-    gastoAdmin: adminMensual, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
+    precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminCash,
+    gastoAdmin: adminCash, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     costosContado,
     montoFinanciar: M, plazo: term, tasa,
@@ -1868,15 +1869,14 @@ function updatePlanOptions() {
       wrap.innerHTML = `
         <div class="rounded-lg bg-amber-50 border border-amber-300 p-3 mb-3 text-xs text-amber-800">
           <p class="font-bold">🔒 Arca Menor activo — Vehículos menores a $${ARCA.umbralPrecio.toLocaleString()}</p>
-          <p class="mt-1">Financiamiento hasta 50% del valor del vehículo. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
+          <p class="mt-1">La inicial (50%) y el financiamiento (50%) se calculan sobre el <b>PRECIO TOTAL del vehículo</b> (no sobre la base imponible). Adicionales de contado: Notaría $200, Comisión Flat 5% del financiado, Logística y Admin. Ninguno se financia ni suma a la cuota.</p>
         </div>
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Menor (&lt; $${ARCA.umbralPrecio.toLocaleString()}):</label>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           ${ARCA.menor.plazos.map(p => {
             const v = state.selectedVehicle;
             const price = v ? v.price : 0;
-            const montoFinanciar = price * 0.50; // 50% financiado
-            const adminUsd = (montoFinanciar * (ARCA.menor.adminPct / 12) * p.meses).toFixed(0);
+            const adminUsd = (price * ARCA.menor.adminPct).toFixed(0);       // admin: % anual sobre el Precio Total
             const logisticaUsd = (price * ARCA.menor.logisticaPct).toFixed(0);
             return `
           <label class="cursor-pointer">
@@ -1884,17 +1884,18 @@ function updatePlanOptions() {
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${p.meses} meses</p>
               <p class="text-xs text-slate-500">Tasa ${(p.tasa*100).toFixed(0)}% anual</p>
-              <p class="text-xs text-slate-500">Logística $${logisticaUsd}</p>
-              <p class="text-xs text-slate-500">Admin ~$${adminUsd} total</p>
+              <p class="text-xs text-slate-500">Logística $${logisticaUsd} (contado)</p>
+              <p class="text-xs text-slate-500">Admin $${adminUsd} (contado)</p>
             </div>
           </label>`;
           }).join('')}
         </div>
         <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
-          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Logística:</b> ${(ARCA.menor.logisticaPct*100).toFixed(0)}% flat sobre PVP</div>
-          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Admin + Flat:</b> ${(ARCA.menor.adminPct*100).toFixed(0)}% + 5%</div>
+          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Logística:</b> ${(ARCA.menor.logisticaPct*100).toFixed(0)}% sobre Precio Total</div>
+          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Admin:</b> ${(ARCA.menor.adminPct*100).toFixed(0)}% sobre Precio Total</div>
+          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Comisión flat:</b> 5% del financiado</div>
           <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Notaría:</b> $200 fijos</div>
-          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Inicial mínima:</b> ${inicialLabel}</div>
+          <div class="rounded-lg bg-amber-50 p-3 border border-amber-200"><b>Inicial mínima:</b> ${inicialLabel} del Precio Total</div>
         </div>
         <p class="text-[10px] text-amber-600 mt-2">⚠ Estos costos adicionales se pagan de contado junto con la inicial, NO se financian.</p>
       `;
@@ -1908,7 +1909,7 @@ function updatePlanOptions() {
       wrap.innerHTML = `
         <div class="rounded-lg bg-blue-50 border border-blue-300 p-3 mb-3 text-xs text-blue-800">
           <p class="font-bold">🔒 Arca Mayor activo — Vehículos desde $${ARCA.umbralPrecio.toLocaleString()}</p>
-          <p class="mt-1">Financiamiento hasta 70% del valor del vehículo. Plazos: 12, 24, 36, 48 meses. Los adicionales (IVA, IGTF, gastos, comisión, notaría) se pagan de contado.</p>
+          <p class="mt-1">La inicial (30%) y el financiamiento (hasta 70%) se calculan sobre el <b>PRECIO TOTAL del vehículo</b> (no sobre la base imponible). Plazos: 12, 24, 36, 48 meses. Adicionales de contado: Notaría $200, Comisión Flat 5% del financiado, Logística y Admin. Ninguno se financia ni suma a la cuota.</p>
         </div>
         <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Arca Mayor:</label>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
@@ -1916,28 +1917,28 @@ function updatePlanOptions() {
             const logisticaPct = ARCA.mayor.logisticaPct[t];
             const adminPct = ARCA.mayor.adminPct[t];
             const logisticaUsd = (price * logisticaPct).toFixed(0);
-            const adminUsd = (price * 0.70 * adminPct).toFixed(0);
+            const adminUsd = (price * adminPct).toFixed(0);       // admin: % anual sobre el Precio Total
             return `
           <label class="cursor-pointer">
             <input type="radio" name="v13Term" value="${t}" class="sr-only peer" ${state.v13Term===t?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${t} meses</p>
               <p class="text-xs text-slate-500">Tasa ${(ARCA.mayor.tasa*100).toFixed(0)}% anual</p>
-              <p class="text-xs text-slate-500">Logística ${fmt(logisticaUsd)}</p>
-              <p class="text-xs text-slate-500">Admin ~${fmt(adminUsd)}</p>
+              <p class="text-xs text-slate-500">Logística ${fmt(logisticaUsd)} (contado)</p>
+              <p class="text-xs text-slate-500">Admin ${fmt(adminUsd)} (contado)</p>
             </div>
           </label>`;
           }).join('')}
         </div>
         <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-          <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
+          <p class="font-bold text-blue-800">Precio Total del vehículo: ${fmt(price)}</p>
           <div class="grid grid-cols-2 gap-2">
             <div class="bg-white rounded p-2 border border-blue-100">
-              <p class="font-semibold text-blue-700">Inicial obligatoria 30%:</p>
+              <p class="font-semibold text-blue-700">Inicial 30% (del Precio Total):</p>
               <p class="text-base font-bold">${fmt(init30)}</p>
             </div>
             <div class="bg-white rounded p-2 border border-blue-100">
-              <p class="font-semibold text-blue-700">Monto financiado:</p>
+              <p class="font-semibold text-blue-700">Monto financiado 70% (del Precio Total):</p>
               <p class="text-base font-bold">${fmt(fin70)}</p>
             </div>
           </div>
@@ -1996,6 +1997,13 @@ function updateLiveSummary() {
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();
   document.getElementById('initialMin').textContent = `Mínimo: ${(minPct*100).toFixed(0)}%`;
+
+  // Mínimos por plan en el campo de inicial (Arca Mayor permite desde 30% sobre el Precio Total)
+  const ivEl = document.getElementById('initialValue');
+  if (ivEl && state.initialMode === 'pct') {
+    ivEl.min = (minPct * 100).toFixed(2);
+    ivEl.max = '100';
+  }
 
   const validation = validateInitial();
   const warnEl = document.getElementById('initialWarning');

@@ -1973,7 +1973,7 @@ function updateLiveSummary() {
   const v = state.selectedVehicle;
   document.getElementById('summaryVehicleName').textContent = v ? v.name : '—';
   document.getElementById('summaryVehiclePrice').textContent = v ? fmt(calc.totalFiscal) : '$0.00';
-  document.getElementById('sumPrice').textContent    = fmt(calc.precio);
+document.getElementById('sumPrice').textContent = fmt(v ? v.price : 0); // Base imponible real (siempre, sin importar el banco)
   document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
   document.getElementById('sumInitPct').textContent  = (getInitialPct()*100).toFixed(1);
   document.getElementById('sumFinanced').textContent = fmt(calc.montoFinanciar);
@@ -2035,6 +2035,7 @@ function renderFormSummary() {
   document.getElementById('formSummary').innerHTML = `
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${v.name}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${color}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Base imponible</p><p class="font-semibold">${fmt(v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt(state.planType === 'v13' ? getArcaPrecioTotal(v) : v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${calc.plan}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>

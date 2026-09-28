@@ -709,15 +709,15 @@ const CTZ = { IVA: 0.16, IGTF: 0.03, inicialMin: 0.50, inicialMax: 0.50, notaria
 
 const PIVCA = {
   nombre: 'Pivca',
-  TNA: 0.18, plazo: 24, comisionFlat: 0.04,
-  // Inicial mínima 50%. Financia hasta 50% del valor del vehículo.
+  TNA: 0.18, plazo: 24, comisionFlat: 0.05,
+  // Inicial mínima 50%. Financia hasta el 50% del PRECIO TOTAL del vehículo (con impuestos).
   inicialMin: 0.50, inicialMaxSugerida: 0.50,
-  notaria: 200,
-  // Comisiones: Flat 4% sobre el monto financiado (pagada de contado)
-  // Seguros: vehicular 3% del valor del vehículo, vida 0.75% del monto financiado
-  seguroVehicularPct: 0.03,   // sobre el valor del vehículo
+  notaria: 0,
+  // Comisión UNIFICADA 5% sobre el monto financiado (incluye gastos de notaría) — pagada de contado
+  // Seguros: vehicular 3% del Precio Total del vehículo, vida 0.75% del monto financiado
+  seguroVehicularPct: 0.03,   // sobre el Precio Total del vehículo
   seguroVidaPct: 0.0075,      // sobre el monto financiado
-  sistema: 'frances', plazosDisponibles: [6, 12, 18, 24]
+  sistema: 'frances', plazosDisponibles: [24]
 };
 
 // === ARCA: Plan Menor (<$30k) y Plan Mayor (>=$30k) ===
@@ -1083,14 +1083,14 @@ function getArcaPrecioTotal(v) {
 
 function getInitialAmount() {
   if (!state.selectedVehicle) return 0;
-  const base = state.planType === 'v13' ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+  const base = (state.planType === 'v13' || state.planType === 'pivca') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
   if (state.initialMode === 'pct') return base * (state.initialValue / 100);
   return Math.min(state.initialValue, base);
 }
 
 function getInitialPct() {
   if (!state.selectedVehicle) return 0;
-  const base = state.planType === 'v13' ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+  const base = (state.planType === 'v13' || state.planType === 'pivca') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
   return getInitialAmount() / base;
 }
 
@@ -1129,10 +1129,12 @@ function validateInitial() {
   }
 
   if (state.planType === 'pivca') {
-    if (pct < PIVCA.inicialMin - 0.005) {
+    const precioTotal = getArcaPrecioTotal(v);
+    const pctPivca = precioTotal > 0 ? ia / precioTotal : 0;
+    if (pctPivca < PIVCA.inicialMin - 0.005) {
       return {
         valid: false,
-        message: `Pivca requiere una inicial mínima del ${(PIVCA.inicialMin*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
+        message: `Pivca requiere una inicial mínima del ${(PIVCA.inicialMin*100).toFixed(0)}%. Tu inicial es ${(pctPivca*100).toFixed(1)}% ($${ia.toLocaleString()}).`
       };
     }
     return { valid: true, message: '' };
@@ -1378,21 +1380,22 @@ function calcCTZ(price, initialAmount, planId, gastos = 0) {
 // 50% financiado. Plazos 6-12-18-24 meses. TNA 18%. Flat 4%.
 // El financiado es SOLO el valor neto del vehículo. Comisión, Notaría, Seguros, IVA, IGTF y Gastos se pagan de contado.
 function calcPivca(price, initialAmount, term, gastos = 0) {
-  const M_base = price - initialAmount;
-  const comision = M_base * PIVCA.comisionFlat;
-  const notaria = PIVCA.notaria;
-  const seguroVehiculo = price * PIVCA.seguroVehicularPct;
-  const polizaVida = M_base * PIVCA.seguroVidaPct;
   const tax = calcularDesglose(price, gastos);
-  // Costos adicionales se pagan de contado (NO se suman al financiado)
+  const precioTotal = tax.totalFinal;               // Costo Total del Vehículo (neto + IVA + IGTF + gastos): ej. Creta $39,310.36
+  const M_base = precioTotal - initialAmount;       // financiado sobre el Precio Total
+  const comision = M_base * PIVCA.comisionFlat;     // comisión unificada 5% del financiado (incluye notaría)
+  const notaria = PIVCA.notaria;                    // 0: gastos de notaría incluidos en el 5%
+  const seguroVehiculo = precioTotal * PIVCA.seguroVehicularPct;   // 3% del Precio Total
+  const polizaVida = M_base * PIVCA.seguroVidaPct;  // 0.75% del monto financiado
+  // Gastos de contado (NO se financian): comisión unificada + seguros + IVA/IGTF/gastos
   const costosContado = comision + notaria + seguroVehiculo + polizaVida + tax.iva + tax.igtf + tax.gastos;
-  const M = M_base;  // financiado = solo el neto del vehículo
-  const cuota = calcFrench(M, PIVCA.TNA, term);
+  const M = M_base;
+  const cuota = calcFrench(M, PIVCA.TNA, term);     // sistema francés puro
   return {
     tipo: 'Pivca',
-    detalle: `Pivca · ${term} meses · TNA ${(PIVCA.TNA*100).toFixed(0)}% · Flat ${(PIVCA.comisionFlat*100).toFixed(0)}%`,
+    detalle: `Pivca · ${term} meses · TNA ${(PIVCA.TNA*100).toFixed(0)}% · Comisión ${(PIVCA.comisionFlat*100).toFixed(0)}%`,
     plan: `Pivca ${term} meses`,
-    precio: price, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
+    precio: precioTotal, inicial: initialAmount, comision, notaria, logistica: 0, admin: 0,
     gastoAdmin: 0, comisionFlat: comision, seguroVehiculo, polizaVida,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     costosContado,
@@ -1819,12 +1822,12 @@ function updatePlanOptions() {
   } else if (state.planType === 'pivca') {
     if (!PIVCA.plazosDisponibles.includes(state.pivcaTerm)) state.pivcaTerm = 24;
     const v = state.selectedVehicle;
-    const price = v ? v.price : 0;
-    const init50 = (price * 0.50).toFixed(2);
-    const fin50 = (price * 0.50).toFixed(2);
-    const seguroVeh = (price * PIVCA.seguroVehicularPct).toFixed(2);
-    const seguroVida = (price * 0.50 * PIVCA.seguroVidaPct).toFixed(2);
-    const comisionUsd = (price * 0.50 * PIVCA.comisionFlat).toFixed(2);
+    const precioTotal = v ? getArcaPrecioTotal(v) : 0;   // Costo Total con impuestos (ej: Creta $39,310.36)
+    const init50 = (precioTotal * 0.50).toFixed(2);
+    const fin50 = (precioTotal * 0.50).toFixed(2);
+    const seguroVeh = (precioTotal * PIVCA.seguroVehicularPct).toFixed(2);
+    const seguroVida = (precioTotal * 0.50 * PIVCA.seguroVidaPct).toFixed(2);
+    const comisionUsd = (precioTotal * 0.50 * PIVCA.comisionFlat).toFixed(2);
     wrap.innerHTML = `
       <label class="text-sm font-semibold text-slate-700">Selecciona un plazo Pivca:</label>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
@@ -1834,33 +1837,32 @@ function updatePlanOptions() {
             <input type="radio" name="pivcaPlan" value="${t}" class="sr-only peer" ${state.pivcaTerm===t?'checked':''} />
             <div class="border-2 rounded-xl p-3 peer-checked:border-hyundai2 peer-checked:bg-blue-50 transition">
               <p class="font-bold text-hyundai">${t} meses</p>
-              <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}%</p>
+              <p class="text-xs text-slate-500">Tasa ${(PIVCA.TNA*100).toFixed(0)}% (TNA)</p>
               <p class="text-xs text-slate-500">Sistema francés</p>
             </div>
           </label>`;
         }).join('')}
       </div>
       <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-        <p class="font-bold text-blue-800">Precio del vehículo: ${fmt(price)}</p>
+        <p class="font-bold text-blue-800">Precio Total del vehículo: ${fmt(precioTotal)}</p>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-white rounded p-2 border border-blue-100">
-            <p class="font-semibold text-blue-700">Inicial obligatoria 50%:</p>
+            <p class="font-semibold text-blue-700">Inicial 50% (del Precio Total):</p>
             <p class="text-base font-bold">${fmt(init50)}</p>
           </div>
           <div class="bg-white rounded p-2 border border-blue-100">
-            <p class="font-semibold text-blue-700">Monto financiado:</p>
+            <p class="font-semibold text-blue-700">Monto financiado 50% (del Precio Total):</p>
             <p class="text-base font-bold">${fmt(fin50)}</p>
           </div>
         </div>
       </div>
-      <div class="grid sm:grid-cols-2 gap-3 text-xs mt-2">
+      <div class="grid sm:grid-cols-3 gap-3 text-xs mt-2">
         <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vehículo ${(PIVCA.seguroVehicularPct*100).toFixed(0)}%:</b> ${fmt(seguroVeh)}</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Seguro vida ${(PIVCA.seguroVidaPct*100).toFixed(2)}%:</b> ${fmt(seguroVida)}</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión flat ${(PIVCA.comisionFlat*100).toFixed(0)}%:</b> ${fmt(comisionUsd)}</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $200 fijos</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión unificada ${(PIVCA.comisionFlat*100).toFixed(0)}% (incluye notaría):</b> ${fmt(comisionUsd)}</div>
       </div>
       <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
-        <b>Importante:</b> Pivca financia máximo 50%. Inicial obligatoria del 50%. TNA 18% anual · Sistema francés (cuota fija). Comisión flat, seguros, notaría, IVA, IGTF y gastos de trámite se pagan de contado junto con la inicial.
+        <b>Importante:</b> Pivca ofrece el plazo de 24 meses. TNA 18% anual · Sistema francés (cuota fija). Financia máximo 50% del Precio Total; inicial obligatoria del 50%. La comisión unificada del 5% (incluye notaría) y los seguros se pagan de contado junto con la inicial.
       </div>
     `;
     wrap.querySelectorAll('input[name="pivcaPlan"]').forEach(r => {
@@ -2002,7 +2004,7 @@ document.getElementById('sumPrice').textContent = fmt(v ? v.price : 0); // Base 
     });
   }
 
-  const basePrecio = (state.planType === 'v13' && v) ? getArcaPrecioTotal(v) : v.price;
+  const basePrecio = ((state.planType === 'v13' || state.planType === 'pivca') && v) ? getArcaPrecioTotal(v) : v.price;
   const equiv = state.initialMode === 'pct' ? (basePrecio * state.initialValue / 100) : state.initialValue;
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();
@@ -2036,7 +2038,7 @@ function renderFormSummary() {
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${v.name}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${color}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Base imponible</p><p class="font-semibold">${fmt(v.price)}</p></div>
-    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt(state.planType === 'v13' ? getArcaPrecioTotal(v) : v.price)}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt((state.planType === 'v13' || state.planType === 'pivca') ? getArcaPrecioTotal(v) : v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${calc.plan}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Inicial</p><p class="font-semibold">${fmt(calc.inicial)} (${(getInitialPct()*100).toFixed(1)}%)</p></div>
@@ -2803,7 +2805,7 @@ function wireEvents() {
       b.classList.add('active');
       state.initialMode = b.dataset.mode;
       if (state.selectedVehicle) {
-        const price = (state.planType === 'v13') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+        const price = (state.planType === 'v13' || state.planType === 'pivca') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
         if (state.initialMode === 'pct') {
           state.initialValue = +(getInitialAmount() / price * 100).toFixed(2);
         } else {

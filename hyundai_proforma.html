@@ -1075,16 +1075,23 @@ function generateProformaCode() {
 const fmt = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (Number(n) * 100).toFixed(2) + '%';
 
+// Precio TOTAL (con impuestos) para Arca: neto + IVA + IGTF + gastos (ej: Creta $39,310.36)
+function getArcaPrecioTotal(v) {
+  if (!v) return 0;
+  return calcularDesglose(v.price, Number(v.gastos) || 0).totalFinal;
+}
+
 function getInitialAmount() {
   if (!state.selectedVehicle) return 0;
-  const price = state.selectedVehicle.price;
-  if (state.initialMode === 'pct') return price * (state.initialValue / 100);
-  return Math.min(state.initialValue, price);
+  const base = state.planType === 'v13' ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+  if (state.initialMode === 'pct') return base * (state.initialValue / 100);
+  return Math.min(state.initialValue, base);
 }
 
 function getInitialPct() {
   if (!state.selectedVehicle) return 0;
-  return getInitialAmount() / state.selectedVehicle.price;
+  const base = state.planType === 'v13' ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+  return getInitialAmount() / base;
 }
 
 // === VALIDACIÓN DE INICIAL POR PLAN ===
@@ -1132,13 +1139,14 @@ function validateInitial() {
   }
 
   if (state.planType === 'v13') {
-    const price = v.price;
-    const esMenor = price < ARCA.umbralPrecio;
+    const precioTotal = getArcaPrecioTotal(v);
+    const esMenor = precioTotal < ARCA.umbralPrecio;   // umbral contra el Costo Total del Vehículo
     const minInit = esMenor ? ARCA.menor.inicialMin : ARCA.mayor.inicialMin;
-    if (pct < minInit - 0.005) {
+    const pctArca = precioTotal > 0 ? ia / precioTotal : 0;
+    if (pctArca < minInit - 0.005) {
       return {
         valid: false,
-        message: `Arca ${esMenor ? 'Menor' : 'Mayor'} requiere una inicial mínima del ${(minInit*100).toFixed(0)}%. Tu inicial es ${(pct*100).toFixed(1)}% ($${ia.toLocaleString()}).`
+        message: `Arca ${esMenor ? 'Menor' : 'Mayor'} requiere una inicial mínima del ${(minInit*100).toFixed(0)}%. Tu inicial es ${(pctArca*100).toFixed(1)}% ($${ia.toLocaleString()}).`
       };
     }
     return { valid: true, message: '' };
@@ -1258,8 +1266,8 @@ function getMinInitialPct() {
   if (state.planType === 'ctz') return CTZ.inicialMin;
   if (state.planType === 'pivca') return PIVCA.inicialMin;
   if (state.planType === 'v13') {
-    const price = state.selectedVehicle?.price || 0;
-    return price < ARCA.umbralPrecio ? ARCA.menor.inicialMin : ARCA.mayor.inicialMin;
+    const precioTotal = getArcaPrecioTotal(state.selectedVehicle);
+    return precioTotal < ARCA.umbralPrecio ? ARCA.menor.inicialMin : ARCA.mayor.inicialMin;
   }
   return 0.20;
 }
@@ -1272,8 +1280,8 @@ function getCurrentPlanName() {
   }
   if (state.planType === 'pivca') return `${PIVCA.nombre} · ${state.pivcaTerm} meses`;
   if (state.planType === 'v13') {
-    const price = state.selectedVehicle?.price || 0;
-    const esMenor = price < ARCA.umbralPrecio;
+    const precioTotal = getArcaPrecioTotal(state.selectedVehicle);
+    const esMenor = precioTotal < ARCA.umbralPrecio;
     return `${ARCA.nombre} ${esMenor ? 'Menor' : 'Mayor'} · ${state.v13Term} meses`;
   }
   return '—';
@@ -1399,9 +1407,11 @@ function calcPivca(price, initialAmount, term, gastos = 0) {
 // Plan Menor (<$30k): 50% init, 12-48m, logística 5% flat + admin 5% anual mensualizado.
 // Plan Mayor (>=$30k): 30% init, 36-48m, logística 5-6% + admin 6-7% anual (pago de contado único).
 function calcArca(price, initialAmount, term, gastos = 0) {
-  const esMenor = price < ARCA.umbralPrecio;
+  const tax = calcularDesglose(price, gastos);
+  const precioTotal = tax.totalFinal;               // Costo Total del Vehículo (neto + IVA + IGTF + gastos): ej. Creta $39,310.36
+  const esMenor = precioTotal < ARCA.umbralPrecio;  // umbral evaluado contra el Costo Total
   const plan = esMenor ? ARCA.menor : ARCA.mayor;
-  const M_base = price - initialAmount;
+  const M_base = precioTotal - initialAmount;       // financiado sobre el Costo Total
   const notaria = ARCA.notaria;
 
   // Get tasa and logistica/admin pcts based on term
@@ -1417,20 +1427,19 @@ function calcArca(price, initialAmount, term, gastos = 0) {
     adminPctAnual = plan.adminPct[term] || 0.06;
   }
 
-  const logistica = price * logisticaPct;
-  const adminCash = price * adminPctAnual;      // gastos admin: % anual sobre el valor del vehículo (pago de contado)
-  const comision = M_base * 0.05;               // comisión flat 5% sobre el monto financiado
-  const tax = calcularDesglose(price, gastos);
+  const logistica = precioTotal * logisticaPct;     // % sobre el Costo Total del Vehículo
+  const adminCash = precioTotal * adminPctAnual;    // gastos admin: % anual sobre el Costo Total (pago de contado)
+  const comision = M_base * 0.05;                   // comisión flat 5% sobre el monto financiado
   // Costos de contado: notaría + logística + admin + comisión flat + impuestos.
-  // NADA se suma al capital a financiar ni a la cuota mensual.
+  // NADA se suma a la cuota mensual.
   const costosContado = notaria + logistica + adminCash + comision + tax.iva + tax.igtf + tax.gastos;
   const M = M_base;
-  const cuota = calcFrench(M, tasa, term);      // cuota francesa pura (sin admin ni logística)
+  const cuota = calcFrench(M, tasa, term);          // cuota francesa pura (sin admin ni logística)
   return {
     tipo: 'Arca',
     detalle: `Arca ${esMenor ? 'Menor' : 'Mayor'} · ${term} meses · Tasa ${(tasa*100).toFixed(0)}% · Logística ${(logisticaPct*100).toFixed(1)}%`,
     plan: `Arca ${esMenor ? 'Menor' : 'Mayor'} ${term} meses`,
-    precio: price, inicial: initialAmount, comision, notaria, logistica, admin: adminCash,
+    precio: precioTotal, inicial: initialAmount, comision, notaria, logistica, admin: adminCash,
     gastoAdmin: adminCash, comisionFlat: comision, seguroVehiculo: 0, polizaVida: 0,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     costosContado,
@@ -1858,7 +1867,7 @@ function updatePlanOptions() {
       r.addEventListener('change', e => { state.pivcaTerm = parseInt(e.target.value); updateLiveSummary(); });
     });
   } else if (state.planType === 'v13') {
-    const price = state.selectedVehicle?.price || 0;
+    const price = getArcaPrecioTotal(state.selectedVehicle);   // Costo Total con impuestos (ej: Creta $39,310.36)
     const esMenor = price < ARCA.umbralPrecio;
     const inicialLabel = esMenor ? '50%' : '30%';
     if (esMenor) {
@@ -1875,7 +1884,7 @@ function updatePlanOptions() {
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           ${ARCA.menor.plazos.map(p => {
             const v = state.selectedVehicle;
-            const price = v ? v.price : 0;
+            const price = v ? getArcaPrecioTotal(v) : 0;       // Costo Total con impuestos
             const adminUsd = (price * ARCA.menor.adminPct).toFixed(0);       // admin: % anual sobre el Precio Total
             const logisticaUsd = (price * ARCA.menor.logisticaPct).toFixed(0);
             return `
@@ -1993,7 +2002,8 @@ function updateLiveSummary() {
     });
   }
 
-  const equiv = state.initialMode === 'pct' ? (v.price * state.initialValue / 100) : state.initialValue;
+  const basePrecio = (state.planType === 'v13' && v) ? getArcaPrecioTotal(v) : v.price;
+  const equiv = state.initialMode === 'pct' ? (basePrecio * state.initialValue / 100) : state.initialValue;
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();
   document.getElementById('initialMin').textContent = `Mínimo: ${(minPct*100).toFixed(0)}%`;
@@ -2025,7 +2035,7 @@ function renderFormSummary() {
   document.getElementById('formSummary').innerHTML = `
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${v.name}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${color}</p></div>
-    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt(v.price)}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt(state.planType === 'v13' ? getArcaPrecioTotal(v) : v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${calc.plan}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Inicial</p><p class="font-semibold">${fmt(calc.inicial)} (${(getInitialPct()*100).toFixed(1)}%)</p></div>
@@ -2792,7 +2802,7 @@ function wireEvents() {
       b.classList.add('active');
       state.initialMode = b.dataset.mode;
       if (state.selectedVehicle) {
-        const price = state.selectedVehicle.price;
+        const price = (state.planType === 'v13') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
         if (state.initialMode === 'pct') {
           state.initialValue = +(getInitialAmount() / price * 100).toFixed(2);
         } else {

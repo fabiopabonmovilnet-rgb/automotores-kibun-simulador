@@ -1436,9 +1436,9 @@ function calcArca(price, initialAmount, term, gastos = 0) {
   const logistica = precioTotal * logisticaPct;     // % sobre el Costo Total del Vehículo
   const adminCash = precioTotal * adminPctAnual;    // gastos admin: % anual sobre el Costo Total (pago de contado)
   const comision = M_base * 0.05;                   // comisión flat 5% sobre el monto financiado
-  // Costos de contado: notaría + logística + admin + comisión flat + impuestos.
-  // NADA se suma a la cuota mensual.
-  const costosContado = notaria + logistica + adminCash + comision + tax.iva + tax.igtf + tax.gastos;
+  // Costos de contado (Arca): notaría + logística + admin + comisión flat.
+  // Arca NO cobra de contado IVA, IGTF ni Trámites/Gastos (su esquema los excluye). NADA se suma a la cuota mensual.
+  const costosContado = notaria + logistica + adminCash + comision;
   const M = M_base;
   const cuota = calcFrench(M, tasa, term);          // cuota francesa pura (sin admin ni logística)
   return {
@@ -2059,9 +2059,9 @@ function renderFormSummary() {
         ${calc.admin > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Administración</span><span class="font-semibold">${fmt(calc.admin)}</span></div>` : ''}
         ${calc.seguroVehiculo > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Seguro vehicular</span><span class="font-semibold">${fmt(calc.seguroVehiculo)}</span></div>` : ''}
         ${calc.polizaVida > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Póliza de vida</span><span class="font-semibold">${fmt(calc.polizaVida)}</span></div>` : ''}
-        <div class="flex justify-between"><span class="text-amber-600">IVA (16%)</span><span class="font-semibold">${fmt(calc.iva)}</span></div>
-        <div class="flex justify-between"><span class="text-amber-600">IGTF (3%)</span><span class="font-semibold">${fmt(calc.igtf)}</span></div>
-        ${calc.gastos > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Trámites y Gastos</span><span class="font-semibold">${fmt(calc.gastos)}</span></div>` : ''}
+        ${state.planType === 'v13' ? '' : `<div class="flex justify-between"><span class="text-amber-600">IVA (16%)</span><span class="font-semibold">${fmt(calc.iva)}</span></div>`}
+        ${state.planType === 'v13' ? '' : `<div class="flex justify-between"><span class="text-amber-600">IGTF (3%)</span><span class="font-semibold">${fmt(calc.igtf)}</span></div>`}
+        ${state.planType === 'v13' ? '' : (calc.gastos > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Trámites y Gastos</span><span class="font-semibold">${fmt(calc.gastos)}</span></div>` : '')}
         <hr class="border-amber-300">
         <div class="flex justify-between font-bold text-amber-800"><span>Total contado adicional</span><span>${fmt(calc.costosContado)}</span></div>
       </div>

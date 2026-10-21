@@ -448,7 +448,10 @@
     <form id="leadForm" class="grid lg:grid-cols-3 gap-6">
       <!-- Cliente -->
       <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <h3 class="font-bold text-hyundai border-b border-slate-100 pb-2">Información personal</h3>
+        <h3 class="font-bold text-hyundai border-b border-slate-100 pb-2 flex items-center justify-between gap-2 flex-wrap">
+          <span>Información personal</span>
+          <button type="button" id="btnBuscarProforma" class="text-xs font-semibold text-hyundai2 underline underline-offset-2 hover:text-hyundai">¿Cliente existente? Buscar proforma previa</button>
+        </h3>
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-semibold text-slate-600 uppercase">Nombre completo *</label>
@@ -1067,6 +1070,88 @@ function generateProformaCode() {
   const y = new Date().getFullYear();
   const r = Math.floor(10000 + Math.random() * 89999);
   return `KIBUN-${y}-${r}`;
+}
+
+/* =============================================================
+   HISTORIAL LOCAL DE PROFORMAS (localStorage)
+   Permite recuperar una proforma previa por Cédula o Nombre del cliente.
+   ============================================================= */
+const KIBUN_HISTORY_KEY = 'kibun_proformas_history';
+
+function loadProformaHistory() {
+  try {
+    const raw = localStorage.getItem(KIBUN_HISTORY_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    console.warn('[Historial] No se pudo leer el historial:', e);
+    return [];
+  }
+}
+
+function saveProformaToHistory(record) {
+  try {
+    const hist = loadProformaHistory();
+    const idx = hist.findIndex(r => r.proformaCode === record.proformaCode);
+    if (idx >= 0) hist[idx] = record; else hist.unshift(record);
+    localStorage.setItem(KIBUN_HISTORY_KEY, JSON.stringify(hist.slice(0, 300)));
+  } catch (e) {
+    console.warn('[Historial] No se pudo guardar la proforma:', e);
+  }
+}
+
+function normSearch(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\-_\.]/g, '').trim();
+}
+
+function buscarProformaPorCliente() {
+  const hist = loadProformaHistory();
+  if (!hist.length) {
+    alert('No se encontró ninguna proforma previa con los datos ingresados.');
+    return;
+  }
+  const q = prompt('Ingrese la Cédula o el Nombre del cliente a buscar:');
+  if (q === null) return;                 // cancelado
+  const nq = normSearch(q);
+  if (!nq) return;
+
+  const found = hist.filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq));
+  if (!found.length) {
+    alert('No se encontró ninguna proforma previa con los datos ingresados.');
+    return;
+  }
+  const rec = found.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
+  restoreProforma(rec);
+}
+
+function restoreProforma(rec) {
+  // 1) Datos personales del formulario
+  const datos = { clientName: rec.name, clientCedula: rec.cedula, clientPhone: rec.phone, clientEmail: rec.email, clientAddress: rec.address };
+  Object.keys(datos).forEach(id => {
+    const el = document.getElementById(id);
+    if (el && datos[id] != null) el.value = datos[id];
+  });
+
+  // 2) Estado del vehículo y financiamiento guardados
+  const v = vehicles.find(x => x.id === rec.vehicleId) || vehicles.find(x => x.name === rec.vehicleName);
+  if (v) state.selectedVehicle = v;
+  if (rec.color) state.selectedColor = rec.color;
+  if (rec.planType) state.planType = rec.planType;
+  if (rec.ctzPlanId != null) state.ctzPlanId = rec.ctzPlanId;
+  if (rec.pivcaTerm != null) state.pivcaTerm = rec.pivcaTerm;
+  if (rec.v13Term != null) state.v13Term = rec.v13Term;
+  if (rec.initialMode) state.initialMode = rec.initialMode;
+  if (rec.initialValue != null) state.initialValue = rec.initialValue;
+
+  // 3) Refrescar controles visibles
+  document.querySelectorAll('#planTypeTabs .plan-tab').forEach(t => t.classList.toggle('active', t.dataset.plan === state.planType));
+  const iv = document.getElementById('initialValue');
+  if (iv) iv.value = state.initialValue;
+  document.querySelectorAll('.seg-btn-group .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === state.initialMode));
+  if (v) { renderSelectedVehicle(); updatePlanOptions(); updateLiveSummary(); }
+  if (state.step === 3) renderFormSummary();
+
+  alert(`✅ Proforma recuperada\n\nCódigo: ${rec.proformaCode}\nCliente: ${rec.name}\nVehículo: ${rec.vehicleName}\nBanco: ${rec.bank || '—'}\nCuota: ${fmt(rec.cuota)}`);
 }
 
 /* =============================================================
@@ -2831,6 +2916,9 @@ function wireEvents() {
     goToStep(3);
   });
 
+  const btnBuscar = document.getElementById('btnBuscarProforma');
+  if (btnBuscar) btnBuscar.addEventListener('click', buscarProformaPorCliente);
+
   document.getElementById('leadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -2885,6 +2973,34 @@ function wireEvents() {
     window.__lastLeadStatus = { leadOk, leadErr };
 
     await generatePDF();
+
+    // Guardar copia local de la proforma emitida (para recuperarla luego por Cédula/Nombre)
+    saveProformaToHistory({
+      proformaCode:   state.proformaCode,
+      fecha:          new Date().toISOString(),
+      cedula:         payload['Cedula'],
+      name:           payload['Cliente'],
+      phone:          payload['Telefono Cliente'],
+      email:          payload['Correo Cliente'],
+      address:        payload['Direccion'],
+      asesor:         payload['Asesor Asignado'],
+      vehicleId:      state.selectedVehicle.id,
+      vehicleName:    state.selectedVehicle.name,
+      color:          payload['Color'],
+      planType:       state.planType,
+      bank:           calc.tipo,
+      plan:           calc.plan,
+      term:           calc.plazo,
+      initialMode:    state.initialMode,
+      initialValue:   state.initialValue,
+      initialPercent: +(getInitialPct()*100).toFixed(2),
+      inicial:        +calc.inicial.toFixed(2),
+      montoFinanciar: +calc.montoFinanciar.toFixed(2),
+      cuota:          +calc.cuotaMensual.toFixed(2),
+      ctzPlanId:      state.ctzPlanId,
+      pivcaTerm:      state.pivcaTerm,
+      v13Term:        state.v13Term
+    });
 
     // Generar nuevo código de proforma para la siguiente
     state.proformaCode = generateProformaCode();

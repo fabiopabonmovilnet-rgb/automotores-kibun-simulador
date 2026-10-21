@@ -1166,6 +1166,78 @@ function normSearch(s) {
   return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\-_\.]/g, '').trim();
 }
 
+// Busca el vehículo del catálogo que corresponde a un registro recuperado (id o nombre exacto, luego difuso)
+function buscarVehiculoRec(rec) {
+  let v = vehicles.find(x => x.id === rec.vehicleId) || vehicles.find(x => x.name === rec.vehicleName);
+  if (!v && rec.vehicleName && typeof fuzzyFindName === 'function') {
+    const name = fuzzyFindName(rec.vehicleName, vehicles.map(x => x.name));
+    if (name) v = vehicles.find(x => x.name === name);
+  }
+  return v;
+}
+
+// Trae los leads desde Airtable (vía proxy serverless). Máx 100 más recientes.
+async function fetchLeadsFromAirtable() {
+  const res = await fetch(API_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operation: 'fetchLeads' })
+  });
+  if (!res.ok) throw new Error('Proxy respondio ' + res.status);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Error del proxy');
+  return (json.data && json.data.records) || [];
+}
+
+function mapearPlan(planElegido) {
+  const s = String(planElegido || '');
+  if (/arca/i.test(s)) return 'v13';
+  if (/ctz/i.test(s)) return 'ctz';
+  if (/pivca/i.test(s)) return 'pivca';
+  return 'provincial';
+}
+
+function parsePlazo(planElegido, planType) {
+  const m = String(planElegido || '').match(/(\d+)\s*meses?/i);
+  if (m) return parseInt(m[1], 10);
+  return planType === 'provincial' ? 48 : 24;
+}
+
+function ctzPlanIdFromTerm(t) { return t <= 12 ? 1 : t <= 18 ? 2 : t <= 24 ? 3 : 4; }
+
+// Convierte un registro de Airtable (Leads) al formato interno de "proforma recuperada"
+function leadToRecord(f) {
+  const planType = mapearPlan(f['Plan Elegido']);
+  const term = parsePlazo(f['Plan Elegido'], planType);
+  const inicial = Number(f['Monto Inicial']) || 0;
+  return {
+    proformaCode: null,
+    fecha: f['Fecha'] || null,
+    cedula: f['Cedula'] || '',
+    name: f['Cliente'] || '',
+    phone: f['Telefono Cliente'] || '',
+    email: f['Correo Cliente'] || '',
+    address: f['Direccion'] || '',
+    asesor: f['Asesor Asignado'] || '',
+    vehicleName: f['Vehiculo Interesado'] || '',
+    color: f['Color'] || '',
+    planType,
+    bank: planType === 'v13' ? 'Arca' : planType === 'ctz' ? 'CTZ' : planType === 'pivca' ? 'Pivca' : 'Provincial',
+    plan: f['Plan Elegido'] || (planType === 'provincial' ? 'Banco Provincial' : ''),
+    term,
+    initialMode: 'usd',
+    initialValue: inicial,
+    initialPercent: null,
+    inicial,
+    montoFinanciar: null,
+    cuota: Number(f['Cuota Mensual']) || 0,
+    ctzPlanId: ctzPlanIdFromTerm(term),
+    pivcaTerm: 24,
+    v13Term: term,
+    _source: 'airtable'
+  };
+}
+
 // Aplica los datos guardados al formulario + estado (sin imprimir). Devuelve true si el vehículo existe.
 function aplicarRecuperacion(rec) {
   // 1) Datos personales del formulario
@@ -1176,7 +1248,7 @@ function aplicarRecuperacion(rec) {
   });
 
   // 2) Estado del vehículo y financiamiento guardados
-  const v = vehicles.find(x => x.id === rec.vehicleId) || vehicles.find(x => x.name === rec.vehicleName);
+  const v = buscarVehiculoRec(rec);
   if (v) state.selectedVehicle = v;
   if (rec.color) state.selectedColor = rec.color;
   if (rec.planType) state.planType = rec.planType;
@@ -1218,7 +1290,7 @@ function cerrarBuscarProforma() {
   if (m) m.classList.remove('active');
 }
 
-function buscarProformasUI() {
+async function buscarProformasUI() {
   const cont = document.getElementById('bpResults');
   if (!cont) return;
   const q = (document.getElementById('bpQuery').value || '').trim();
@@ -1227,34 +1299,69 @@ function buscarProformasUI() {
     cont.innerHTML = '<p class="text-sm text-slate-500">Escriba una cédula o nombre para buscar.</p>';
     return;
   }
-  const found = loadProformaHistory()
+
+  cont.innerHTML = '<p class="text-sm text-slate-500">Buscando…</p>';
+
+  // 1) Historial local de este navegador
+  const locales = loadProformaHistory()
     .filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq))
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  if (!found.length) {
-    cont.innerHTML = '<p class="text-sm text-amber-600">No se encontró ninguna proforma previa con los datos ingresados.</p>';
+    .map(r => Object.assign({ _source: 'local' }, r));
+
+  // 2) Airtable (base de datos de leads)
+  let remotos = [], airErr = '';
+  try {
+    const records = await fetchLeadsFromAirtable();
+    remotos = records
+      .map(r => leadToRecord(r.fields || {}))
+      .filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq));
+  } catch (e) {
+    airErr = e.message || String(e);
+  }
+
+  // 3) Unir y deduplicar (misma cédula + vehículo + cuota)
+  const vistos = new Set();
+  const merged = [];
+  locales.concat(remotos).forEach(r => {
+    const key = normSearch(r.cedula) + '|' + normSearch(r.vehicleName) + '|' + Number(r.cuota || 0).toFixed(2);
+    if (vistos.has(key)) return;
+    vistos.add(key);
+    merged.push(r);
+  });
+
+  if (!merged.length) {
+    cont.innerHTML = '<p class="text-sm text-amber-600">No se encontró ninguna proforma previa con los datos ingresados.'
+      + (airErr ? '<br><span class="text-xs text-slate-400">(Airtable no respondió: ' + airErr + ')</span>' : '') + '</p>';
     return;
   }
-  cont.innerHTML = found.map(r => `
+
+  cont.innerHTML = merged.map(r => {
+    const badge = r._source === 'local'
+      ? '<span class="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Local</span>'
+      : '<span class="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Airtable</span>';
+    const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-VE') : '—';
+    const code = r.proformaCode || '(sin código)';
+    return `
     <div class="rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
       <div class="text-sm">
-        <p class="font-bold text-hyundai">${r.name} <span class="text-slate-400 font-normal">· ${r.cedula || ''}</span></p>
-        <p class="text-xs text-slate-500">${r.proformaCode} · ${new Date(r.fecha).toLocaleDateString('es-VE')} · ${r.vehicleName} · ${r.bank || ''} · ${r.term || ''}m</p>
-        <p class="text-xs text-slate-500">Cuota: ${fmt(r.cuota)} · Inicial: ${fmt(r.inicial)}${r.initialPercent != null ? ' (' + r.initialPercent + '%)' : ''}</p>
+        <p class="font-bold text-hyundai">${r.name} <span class="text-slate-400 font-normal">· ${r.cedula || ''}</span>${badge}</p>
+        <p class="text-xs text-slate-500">${code} · ${fecha} · ${r.vehicleName || ''} · ${r.bank || ''} · ${r.term || ''}m</p>
+        <p class="text-xs text-slate-500">Cuota: ${fmt(r.cuota)} · Inicial: ${fmt(r.inicial)}</p>
       </div>
       <div class="flex gap-2">
         <button data-bp-reprint class="px-3 py-1.5 rounded-lg border border-hyundai text-hyundai font-semibold text-xs hover:bg-hyundai/5 transition">Reimprimir</button>
         <button data-bp-edit class="px-3 py-1.5 rounded-lg bg-hyundai text-white font-bold text-xs hover:bg-hyundai3 transition">Editar</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
-  cont.querySelectorAll('[data-bp-reprint]').forEach((b, i) => b.addEventListener('click', () => reimprimirProforma(found[i])));
-  cont.querySelectorAll('[data-bp-edit]').forEach((b, i) => b.addEventListener('click', () => editarProforma(found[i])));
+  cont.querySelectorAll('[data-bp-reprint]').forEach((b, i) => b.addEventListener('click', () => reimprimirProforma(merged[i])));
+  cont.querySelectorAll('[data-bp-edit]').forEach((b, i) => b.addEventListener('click', () => editarProforma(merged[i])));
 }
 
 // Reimprime tal cual estaba (mismo código), sin editar nada.
 function reimprimirProforma(rec) {
   if (!aplicarRecuperacion(rec)) { alert('No se pudo recuperar la proforma: el vehículo ya no está en el catálogo.'); return; }
-  state.proformaCode = rec.proformaCode;
+  state.proformaCode = rec.proformaCode || (typeof generateProformaCode === 'function' ? generateProformaCode() : state.proformaCode);
   cerrarBuscarProforma();
   generatePDF();
 }

@@ -2807,152 +2807,166 @@ function buildPDFHTML(calc, advisor) {
 
   const colorName = state.selectedColor || getDefaultColor(v.name);
   const vehImg = getColorImageUrl(v.name, colorName) || v.imageUrl || '';
+  const cat = v.category || obtenerCategoria(v.name) || '—';
+  const uso = 'Particular';
 
-  // --- Header ---
-  const headerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:2px;">'
-    + '<div style="display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0;">'
-    +   '<div style="width:32px; height:32px; min-width:32px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14pt; border-radius:5px;">K</div>'
-    +   '<img src="img/logo_hyundai.jpg" alt="Logo Hyundai" style="width:40px; height:18px; min-width:40px;" />'
+  // --- 1) Encabezado Institucional ---
+  const headerHTML = '<div style="display:flex; align-items:flex-start; justify-content:space-between; padding-bottom:2px; gap:8px;">'
+    + '<div style="display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0;">'
+    +   '<div style="width:36px; height:36px; min-width:36px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16pt; border-radius:6px; box-shadow:0 1px 2px rgba(0,44,95,0.18);">K</div>'
+    +   '<img src="img/logo_hyundai.jpg" alt="Logo Hyundai" style="width:44px; height:20px; min-width:44px;" />'
     +   '<div style="flex:1 1 auto; min-width:0; overflow:hidden;">'
-    +     '<div style="color:#002C5F; font-size:10pt; font-weight:800; line-height:1.1;">AUTOMOTORES KIBUN</div>'
-    +     '<div style="color:#475569; font-size:6.5pt; line-height:1.15;">Concesionario Oficial Hyundai · Mérida</div>'
-    +     '<div style="color:#64748b; font-size:6pt; line-height:1.15;">' + EMPRESA.direccion + ' · RIF ' + EMPRESA.rif + '</div>'
-    +     '<div style="color:#64748b; font-size:6pt; line-height:1.15;">Tel. ' + EMPRESA.telefono + ' · ' + EMPRESA.email + '</div>'
+    +     '<div style="color:#002C5F; font-size:11pt; font-weight:900; line-height:1.1; letter-spacing:0.2px;">AUTOMOTORES KIBUN C.A.</div>'
+    +     '<div style="color:#475569; font-size:6.5pt; line-height:1.15;"><b>RIF:</b> ' + EMPRESA.rif + '</div>'
+    +     '<div style="color:#475569; font-size:6.5pt; line-height:1.15;">' + EMPRESA.direccion + '</div>'
+    +     '<div style="color:#475569; font-size:6.5pt; line-height:1.15;">Telf. 0412-6744155 | Correo: minicarsmerida@gmail.com / ventas@automotoreskibun.com</div>'
     +   '</div>'
     + '</div>'
     + '<div style="text-align:right; flex:0 0 auto; min-width:0;">'
-    +   '<div style="color:#002C5F; font-size:13pt; font-weight:800; line-height:1;">PROFORMA</div>'
-    +   '<div style="color:#475569; font-size:6.5pt; margin-top:1px;"><b>Fecha:</b> ' + today + '</div>'
-    +   '<div style="color:#475569; font-size:6.5pt;"><b>Válida:</b> ' + validUntil + '</div>'
+    +   '<div style="color:#002C5F; font-size:14pt; font-weight:900; line-height:1; letter-spacing:0.3px;">COTIZACIÓN</div>'
+    +   '<div style="color:#475569; font-size:6.8pt; margin-top:2px;"><b>Lugar y Fecha:</b> Mérida, ' + today + '</div>'
+    +   '<div style="color:#475569; font-size:6.8pt;"><b>Válida hasta:</b> ' + validUntil + '</div>'
+    +   '<div style="color:#475569; font-size:6.5pt; margin-top:2px;"><b>N° Proforma:</b> ' + (state.proformaCode || '') + '</div>'
     + '</div>'
   + '</div>';
 
-  // --- Vehiculo (vertical, sin columnas horizontales) ---
-  function pdfSpecsGrid(specs) {
-    const entries = Object.entries(specs);
-    let rows = '';
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
-      rows += '<div style="display:flex; gap:3px; padding:1px 4px; ' + (i % 2 === 0 ? 'background:#f8fafc;' : '') + '">'
-        + '<span style="flex:0 0 90px; font-size:6pt; font-weight:600; color:#475569;">' + e[0].charAt(0).toUpperCase()+e[0].slice(1) + ':</span>'
-        + '<span style="flex:1; font-size:6pt; color:#334155; word-break:break-word;">' + e[1] + '</span>'
-        + '</div>';
-    }
-    return rows;
-  }
+  // --- 2) Destinatario ---
+  const planName = calc.tipo || 'Banco Provincial';
+  const planEntityMap = { 'Provincial': 'Banco Provincial', 'CTZ': 'CTZ', 'Pivca': 'Pivca', 'Arca': 'Arca' };
+  const destinatario = planEntityMap[planName] || 'Señor(es)';
+  const destinatarioHTML = '<div style="margin:4px 0 2px;">'
+    + '<div style="font-size:7.5pt; color:#0f172a;"><b>SEÑORES:</b> ' + destinatario + '</div>'
+    + '<div style="font-size:7.5pt; color:#0f172a;">Presente.-</div>'
+  + '</div>';
 
-  const vehThumb = vehImg
-    ? '<div style="text-align:center; padding:2px 0;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="width:100px; height:auto; max-height:55px; object-fit:contain; border-radius:3px; border:1px solid #e2e8f0;" /></div>'
-    : '';
-  const vehiculoHTML = '<div class="pdf-section evitar-corte">'
-    + '<div class="pdf-bar">Vehículo · ' + v.name + '</div>'
-    + vehThumb
-    + '<div style="padding:0 4px 2px;">'
-    + '<div style="display:flex; flex-wrap:wrap;">'
-    + pdfField('Modelo', v.name)
-    + pdfField('Color', state.selectedColor || getDefaultColor(v.name))
-    + '</div>'
-    + '</div>'
-    + '<div style="padding:0 4px 4px;">' + pdfSpecsGrid(v.specs) + '</div>'
-    + '</div>';
-
-  // --- Datos del cliente (4 columnas limpias) ---
+  // --- Bloque 1: DATOS DEL CLIENTE ---
   function pdfField(label, val) {
     return '<div style="flex:1 1 23%; min-width:23%; padding:2px 4px; box-sizing:border-box;">'
-      + '<span style="font-size:6.5pt; font-weight:600; color:#475569; display:block;">' + label + '</span>'
-      + '<span style="font-size:7pt; color:#0f172a; display:block; word-break:break-word;">' + (val || '—') + '</span>'
+      + '<span style="font-size:6.8pt; font-weight:700; color:#475569; display:block; text-transform:uppercase;">' + label + '</span>'
+      + '<span style="font-size:7.5pt; color:#0f172a; display:block; word-break:break-word;">' + (val || '—') + '</span>'
       + '</div>';
   }
   const clienteHTML = '<div class="pdf-section evitar-corte">'
-    + '<div class="pdf-bar">Datos del Cliente</div>'
+    + '<div class="pdf-bar">BLOQUE 1: DATOS DEL CLIENTE</div>'
     + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
-    + pdfField('Nombre', data.name)
-    + pdfField('Cédula / RIF', data.cedula)
-    + pdfField('Teléfono', data.phone)
-    + pdfField('Correo electrónico', data.email)
-    + pdfField('Dirección', data.address || '—')
-    + pdfField('Asesor comercial', advisor.nombre || '—')
-    + pdfField('Contacto asesor', (advisor.correo || '') + (advisor.telefono ? ' · ' + advisor.telefono : ''))
+    + pdfField('NOMBRE', data.name)
+    + pdfField('CÉDULA / RIF', data.cedula)
+    + pdfField('DIRECCIÓN', data.address)
+    + pdfField('TELÉFONO', data.phone)
+    + pdfField('CORREO', data.email)
+    + pdfField('ASESOR COMERCIAL', advisor.nombre || '—')
     + '</div>'
-    + '</div>';
+  + '</div>';
 
-  // --- Estructura de Costos (4 columnas simétricas) ---
+  // --- Bloque 2: DATOS DEL VEHÍCULO ---
+  const vehThumb = vehImg
+    ? '<div style="text-align:center; padding:2px 0;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="width:120px; height:auto; max-height:60px; object-fit:contain; border-radius:3px; border:1px solid #e2e8f0;" /></div>'
+    : '';
+  const vehiculoHTML = '<div class="pdf-section evitar-corte">'
+    + '<div class="pdf-bar">BLOQUE 2: DATOS DEL VEHÍCULO</div>'
+    + vehThumb
+    + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
+    + pdfField('MARCA', 'HYUNDAI')
+    + pdfField('MODELO', v.name)
+    + pdfField('TIPO', cat)
+    + pdfField('AÑO', String(new Date().getFullYear()))
+    + pdfField('CLASE', /SUV|Palisade|Tucson|Creta/i.test(cat) ? 'Camioneta' : 'Automóvil')
+    + pdfField('USO', uso)
+    + pdfField('COLOR', colorName)
+    + '</div>'
+  + '</div>';
+
+  // --- Bloque 3: ESTRUCTURA DE COSTOS / DESGLOSE FINANCIERO ---
+  const basePrice = (typeof calc.subtotalFiscal !== 'undefined') ? calc.subtotalFiscal : (v.price || 0);
+  const gastosAdmin = (typeof calc.gastos !== 'undefined') ? calc.gastos : (Number(v.gastos) || 0);
+  const ivaAmt = (typeof calc.iva !== 'undefined') ? calc.iva : 0;
+  const igtfAmt = (typeof calc.igtf !== 'undefined') ? calc.igtf : 0;
+  const totalVeh = (typeof calc.totalFiscal !== 'undefined') ? calc.totalFiscal : (basePrice + gastosAdmin + ivaAmt + igtfAmt);
   const costosHTML = '<div class="pdf-section evitar-corte">'
-    + '<div class="pdf-bar">Estructura de Costos</div>'
+    + '<div class="pdf-bar">BLOQUE 3: ESTRUCTURA DE COSTOS / DESGLOSE FINANCIERO</div>'
     + '<div style="padding:1px 0;">'
     + '<div style="display:flex; flex-wrap:wrap;">'
-    + pdfField('Precio Base Imponible', fmt(calc.subtotalFiscal))
-    + pdfField('I.V.A. (16%)', fmt(calc.iva))
-    + pdfField('I.G.T.F. (3%)', fmt(calc.igtf))
-    + pdfField('Trámites y Gastos', fmt(calc.gastos))
+    + pdfField('PRECIO BASE IMPONIBLE $ USA', fmt(basePrice))
+    + pdfField('GASTOS ADMINISTRATIVOS VARIOS (TRÁMITES Y GASTOS)', fmt(gastosAdmin))
+    + pdfField('I.V.A. (16%)', fmt(ivaAmt))
+    + pdfField('I.G.T.F. (3%)', fmt(igtfAmt))
     + '</div>'
-    + '<div style="background:#002C5F; color:#fff; font-weight:700; padding:3px 6px; display:flex; justify-content:space-between; align-items:center; margin:2px 4px 0; border-radius:3px;">'
-    +   '<span style="font-size:7.5pt;">TOTAL A PAGAR (USD)</span>'
-    +   '<span style="font-size:10pt;">' + fmt(calc.totalFiscal) + '</span>'
+    + '<div style="background:#002C5F; color:#fff; font-weight:800; padding:3px 6px; display:flex; justify-content:space-between; align-items:center; margin:2px 4px 0; border-radius:3px; box-shadow:0 1px 2px rgba(0,44,95,0.12);">'
+    +   '<span style="font-size:8pt; letter-spacing:0.2px;">TOTAL VEHÍCULO $ USA</span>'
+    +   '<span style="font-size:11pt;">' + fmt(totalVeh) + '</span>'
     + '</div>'
-    + '<div style="margin-top:2px; padding:2px 5px; background:#f1f5f9; border-left:3px solid #00AAD2; font-size:6.5pt; color:#0f172a;">'
-    +   '<b style="color:#002C5F;">Cuenta para pago en USD:</b> '
-    +   'Transferencia a ' + EMPRESA.bancoUsd + ' — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif
+    + '<div style="margin-top:2px; padding:2px 5px; background:#f8fafc; border-left:3px solid #00AAD2; font-size:6.5pt; color:#475569;">'
+    +   '<b style="color:#002C5F;">Nota:</b> PLACA Y CERTIFICADO DE ORIGEN se encuentran incluidos dentro de los <b>GASTOS ADMINISTRATIVOS VARIOS / TRÁMITES Y GASTOS</b>.'
     + '</div>'
     + '</div>'
-    + '</div>';
+  + '</div>';
 
-  // --- Carta de presentación a la entidad financiera ---
-  const planName = calc.tipo || 'Banco Provincial';
-  const planEntityMap = { 'Provincial': 'Srs: Banco Provincial', 'CTZ': 'Srs: CTZ', 'Pivca': 'Srs: Pivca', 'Arca': 'Srs: Arca' };
-  const salutation = planEntityMap[planName] || 'A quien corresponda';
+  // --- FINANCIAMIENTO (conservado en formato sobrio) ---
+  const finHTML = '<div class="pdf-section evitar-corte">'
+    + '<div class="pdf-bar">CONDICIONES DE FINANCIAMIENTO</div>'
+    + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
+    + pdfField('ENTIDAD FINANCIERA', calc.plan || planName)
+    + pdfField('PLAZO', (calc.plazo || '') + ' MESES')
+    + pdfField('TASA APLICADA', calc.tasa != null ? ((calc.tasa * 100).toFixed(2)) + '% TNA' : '—')
+    + pdfField('INICIAL', fmt(calc.inicial))
+    + pdfField('MONTO A FINANCIAR', fmt(calc.montoFinanciar))
+    + pdfField('CUOTA MENSUAL ESTIMADA', fmt(calc.cuotaMensual))
+    + '</div>'
+  + '</div>';
+
+  // --- Carta de presentación (conservada) ---
   const cartaHTML = '<div class="pdf-section evitar-corte">'
-    + '<div class="pdf-bar">Carta de Presentación — ' + planName + '</div>'
-    + '<div style="font-size:7pt; line-height:1.3; color:#334155; padding:4px 6px;">'
-    + '<p style="margin-bottom:4px;"><b>' + salutation + ':</b></p>'
-    + '<p style="margin-bottom:4px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', '
-    + 'con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento '
-    + 'del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, '
-    + 'quien ha manifestado su interés en adquirir el vehículo <b>' + v.name + '</b> '
-    + 'por un valor total de <b>' + fmt(calc.totalFiscal) + '</b> USD, bajo las condiciones del plan <b>' + (calc.plan || planName) + '</b>.</p>'
-    + '<p style="margin-bottom:4px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
+    + '<div class="pdf-bar">CARTA DE PRESENTACIÓN — ' + (calc.plan || planName) + '</div>'
+    + '<div style="font-size:7pt; line-height:1.35; color:#334155; padding:4px 6px;">'
+    + '<p style="margin-bottom:3px;"><b>' + destinatario + ':</b></p>'
+    + '<p style="margin-bottom:3px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, quien ha manifestado su interés en adquirir el vehículo <b>' + v.name + '</b> por un valor total de <b>' + fmt(totalVeh) + '</b> USD, bajo las condiciones del plan <b>' + (calc.plan || planName) + '</b>.</p>'
+    + '<p style="margin-bottom:3px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
     + '<p>Atentamente,</p>'
     + '</div>'
-    + '</div>';
+  + '</div>';
 
-  // --- Sello institucional (imagen real) ---
-  const selloHTML = '<div style="text-align:center; margin:2px 0; padding:1px;">'
-    + '<img src="img/sello_kibun.png" onerror="this.style.display=\'none\'" style="height:45px; opacity:0.85;" />'
-    + '</div>';
-
-  // --- Terminos y Correlativos (1, 2, 3, 4) ---
-  const terminosHTML = '<div style="padding:3px 0;">'
-    + '<div style="font-size:6.5pt; line-height:1.25; color:#475569; padding:2px 4px; word-break:break-word;">'
-    + '<b style="color:#002C5F; font-size:7pt;">Términos y Condiciones</b><br>'
-    + '1. Esta proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
+  // --- Términos y Condiciones ---
+  const terminosHTML = '<div class="pdf-section evitar-corte">'
+    + '<div style="padding:2px 0;">'
+    + '<div style="font-size:6.5pt; line-height:1.28; color:#475569; padding:2px 4px; word-break:break-word;">'
+    + '<b style="color:#002C5F; font-size:7pt;">TÉRMINOS Y CONDICIONES</b><br>'
+    + '1. Esta cotización/proforma es referencial y tiene una vigencia de 15 días a partir de la fecha de emisión.<br>'
     + '2. La aprobación final del crédito está sujeta al análisis y evaluación crediticia de la entidad financiera seleccionada.<br>'
     + '3. La tasa, plazo y cuota pueden variar al momento de la formalización según las condiciones vigentes de la entidad.<br>'
-    + '4. Los precios están expresados exclusivamente en dólares americanos (USD).'
+    + '4. Los precios están expresados exclusivamente en dólares americanos (USD).<br>'
+    + '5. Placa y certificado de origen incluidos dentro de los trámites y gastos.'
     + '</div>'
-    + '</div>';
+    + '</div>'
+  + '</div>';
 
-  // --- Firmas + Sello (juntos, sin corte de página) ---
-  const firmasHTML = '<div style="display:flex; gap:8px; margin-top:4px;">'
+  // --- Bloque 4: Cierre, Sello y Firmas ---
+  const selloHTML = '<div style="text-align:center; margin:2px 0; padding:1px;">'
+    + '<img src="img/sello_kibun.png" onerror="this.style.display=\'none\'" style="height:48px; opacity:0.9;" />'
+  + '</div>';
+
+  const firmasHTML = '<div style="display:flex; gap:10px; margin-top:4px;">'
     + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
-    +   '<b>' + (advisor.nombre || 'Asesor Comercial') + '</b><br><span style="color:#64748b;">Asesor Automotores Kibun</span>'
+    +   '<b>' + (advisor.nombre || 'Asesor Comercial') + '</b><br><span style="color:#64748b;">Asesor Comercial · AUTOMOTORES KIBUN C.A.</span>'
     + '</div>'
     + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
-    +   '<b>' + data.name + '</b><br><span style="color:#64748b;">' + data.cedula + ' · Cliente</span>'
+    +   '<b>' + data.name + '</b><br><span style="color:#64748b;">' + (data.cedula || '') + ' · Cliente</span>'
     + '</div>'
   + '</div>'
-  + '<div style="margin-top:2px; text-align:center; font-size:6pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — Automotores Kibun Mérida · ' + state.proformaCode + '</div>';
+  + '<div style="margin-top:2px; text-align:center; font-size:6pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + ' · ' + state.proformaCode + '</div>';
 
-  // --- Sello + Firmas envueltos juntos para evitar corte de página ---
   const selloFirmasHTML = '<div class="evitar-corte">'
+    + '<div style="font-size:7pt; color:#002C5F; font-weight:700; text-align:center; margin-top:4px;">BLOQUE 4: CIERRE, SELLO Y FIRMAS</div>'
     + selloHTML
     + firmasHTML
-    + '</div>';
+  + '</div>';
 
   return headerHTML
     + '<div style="height:2px; background:linear-gradient(90deg,#002C5F,#00AAD2); margin:2px 0 4px;"></div>'
+    + destinatarioHTML
     + clienteHTML
     + vehiculoHTML
     + costosHTML
+    + finHTML
     + cartaHTML
     + terminosHTML
     + selloFirmasHTML;

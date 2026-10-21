@@ -86,6 +86,36 @@
     justify-content: flex-end;
   }
 
+  /* === BUSCAR PROFORMA MODAL === */
+  #buscarProformaModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(15,23,42,0.75);
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  #buscarProformaModal.active { display: flex; align-items: flex-start; justify-content: center; }
+  #buscarProformaModal .bp-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 680px;
+    width: 100%;
+    margin-top: 40px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  #buscarProformaModal .bp-header {
+    background: #002C5F;
+    color: #fff;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
   /* === PDF CONTENT — Preview en pantalla === */
   * { box-sizing: border-box !important; }
   #pdf-content {
@@ -143,6 +173,7 @@
     #pdf-content table { table-layout: fixed !important; }
     .evitar-corte { page-break-inside: avoid !important; }
     #pdfPreviewModal { display: none !important; }
+    #buscarProformaModal { display: none !important; }
   }
 
   /* === PDF CONTENT INNER STYLES === */
@@ -305,6 +336,14 @@
   <!-- STEP 1: CATÁLOGO DE VEHÍCULOS                 -->
   <!-- ============================================== -->
   <section id="step1" class="fade-in">
+    <div class="mb-6 rounded-2xl border border-hyundai2/30 bg-blue-50/60 p-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="font-bold text-hyundai">¿Atiendes a un cliente que ya tiene proforma?</p>
+        <p class="text-sm text-slate-600">Recupérela por cédula o nombre: reimprímela o edítala sin volver a llenar todo.</p>
+      </div>
+      <button id="btnBuscarProformaTop" class="gradient-h text-white font-bold py-2.5 px-4 rounded-xl hover:opacity-90 transition whitespace-nowrap">Buscar proforma previa</button>
+    </div>
+
     <div class="mb-6">
       <h2 class="text-2xl md:text-3xl font-extrabold text-hyundai">Catálogo Hyundai 2026</h2>
       <p class="text-slate-600 mt-1">Selecciona el modelo que deseas financiar. Cada tarjeta incluye la ficha técnica oficial.</p>
@@ -564,6 +603,29 @@
     <div class="w-14 h-14 border-4 border-slate-200 border-t-hyundai2 rounded-full animate-spin mx-auto"></div>
     <h4 class="font-bold text-hyundai mt-4" id="loadingTitle">Procesando...</h4>
     <p class="text-sm text-slate-500 mt-1" id="loadingMsg">Registrando lead y generando PDF.</p>
+  </div>
+</div>
+
+<!-- =========================================================
+     BUSCAR PROFORMA MODAL (recuperar por cédula o nombre)
+     ========================================================= -->
+<div id="buscarProformaModal">
+  <div class="bp-wrapper">
+    <div class="bp-header">
+      <div>
+        <h3 class="font-bold text-base">Buscar proforma previa</h3>
+        <p class="text-xs opacity-80">Por cédula o nombre del cliente</p>
+      </div>
+      <button onclick="cerrarBuscarProforma()" class="text-white/70 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input id="bpQuery" type="text" placeholder="Ej. V-12345678 o Juan Pérez"
+               class="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg focus:border-hyundai2 focus:ring-2 focus:ring-hyundai2/20 focus:outline-none" />
+        <button id="bpSearchBtn" class="gradient-h text-white font-bold py-2.5 px-5 rounded-lg hover:opacity-90 transition">Buscar</button>
+      </div>
+      <div id="bpResults" class="space-y-2"></div>
+    </div>
   </div>
 </div>
 
@@ -1104,27 +1166,8 @@ function normSearch(s) {
   return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\-_\.]/g, '').trim();
 }
 
-function buscarProformaPorCliente() {
-  const hist = loadProformaHistory();
-  if (!hist.length) {
-    alert('No se encontró ninguna proforma previa con los datos ingresados.');
-    return;
-  }
-  const q = prompt('Ingrese la Cédula o el Nombre del cliente a buscar:');
-  if (q === null) return;                 // cancelado
-  const nq = normSearch(q);
-  if (!nq) return;
-
-  const found = hist.filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq));
-  if (!found.length) {
-    alert('No se encontró ninguna proforma previa con los datos ingresados.');
-    return;
-  }
-  const rec = found.sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
-  restoreProforma(rec);
-}
-
-function restoreProforma(rec) {
+// Aplica los datos guardados al formulario + estado (sin imprimir). Devuelve true si el vehículo existe.
+function aplicarRecuperacion(rec) {
   // 1) Datos personales del formulario
   const datos = { clientName: rec.name, clientCedula: rec.cedula, clientPhone: rec.phone, clientEmail: rec.email, clientAddress: rec.address };
   Object.keys(datos).forEach(id => {
@@ -1143,15 +1186,84 @@ function restoreProforma(rec) {
   if (rec.initialMode) state.initialMode = rec.initialMode;
   if (rec.initialValue != null) state.initialValue = rec.initialValue;
 
-  // 3) Refrescar controles visibles
+  // 3) Asesor asignado (si coincide con una opción disponible)
+  const sel = document.getElementById('salespersonBranch');
+  if (sel && rec.asesor) {
+    const opt = Array.from(sel.options).find(o => o.text.trim() === String(rec.asesor).trim());
+    if (opt) sel.value = opt.value;
+  }
+
+  // 4) Refrescar controles visibles
   document.querySelectorAll('#planTypeTabs .plan-tab').forEach(t => t.classList.toggle('active', t.dataset.plan === state.planType));
   const iv = document.getElementById('initialValue');
   if (iv) iv.value = state.initialValue;
   document.querySelectorAll('.seg-btn-group .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === state.initialMode));
   if (v) { renderSelectedVehicle(); updatePlanOptions(); updateLiveSummary(); }
-  if (state.step === 3) renderFormSummary();
+  return !!v;
+}
 
-  alert(`✅ Proforma recuperada\n\nCódigo: ${rec.proformaCode}\nCliente: ${rec.name}\nVehículo: ${rec.vehicleName}\nBanco: ${rec.bank || '—'}\nCuota: ${fmt(rec.cuota)}`);
+function abrirBuscarProforma() {
+  const m = document.getElementById('buscarProformaModal');
+  if (!m) return;
+  const q = document.getElementById('bpQuery');
+  if (q) q.value = '';
+  const c = document.getElementById('bpResults');
+  if (c) c.innerHTML = '';
+  m.classList.add('active');
+  setTimeout(() => q && q.focus(), 60);
+}
+
+function cerrarBuscarProforma() {
+  const m = document.getElementById('buscarProformaModal');
+  if (m) m.classList.remove('active');
+}
+
+function buscarProformasUI() {
+  const cont = document.getElementById('bpResults');
+  if (!cont) return;
+  const q = (document.getElementById('bpQuery').value || '').trim();
+  const nq = normSearch(q);
+  if (!nq) {
+    cont.innerHTML = '<p class="text-sm text-slate-500">Escriba una cédula o nombre para buscar.</p>';
+    return;
+  }
+  const found = loadProformaHistory()
+    .filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq))
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  if (!found.length) {
+    cont.innerHTML = '<p class="text-sm text-amber-600">No se encontró ninguna proforma previa con los datos ingresados.</p>';
+    return;
+  }
+  cont.innerHTML = found.map(r => `
+    <div class="rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="text-sm">
+        <p class="font-bold text-hyundai">${r.name} <span class="text-slate-400 font-normal">· ${r.cedula || ''}</span></p>
+        <p class="text-xs text-slate-500">${r.proformaCode} · ${new Date(r.fecha).toLocaleDateString('es-VE')} · ${r.vehicleName} · ${r.bank || ''} · ${r.term || ''}m</p>
+        <p class="text-xs text-slate-500">Cuota: ${fmt(r.cuota)} · Inicial: ${fmt(r.inicial)}${r.initialPercent != null ? ' (' + r.initialPercent + '%)' : ''}</p>
+      </div>
+      <div class="flex gap-2">
+        <button data-bp-reprint class="px-3 py-1.5 rounded-lg border border-hyundai text-hyundai font-semibold text-xs hover:bg-hyundai/5 transition">Reimprimir</button>
+        <button data-bp-edit class="px-3 py-1.5 rounded-lg bg-hyundai text-white font-bold text-xs hover:bg-hyundai3 transition">Editar</button>
+      </div>
+    </div>`).join('');
+
+  cont.querySelectorAll('[data-bp-reprint]').forEach((b, i) => b.addEventListener('click', () => reimprimirProforma(found[i])));
+  cont.querySelectorAll('[data-bp-edit]').forEach((b, i) => b.addEventListener('click', () => editarProforma(found[i])));
+}
+
+// Reimprime tal cual estaba (mismo código), sin editar nada.
+function reimprimirProforma(rec) {
+  if (!aplicarRecuperacion(rec)) { alert('No se pudo recuperar la proforma: el vehículo ya no está en el catálogo.'); return; }
+  state.proformaCode = rec.proformaCode;
+  cerrarBuscarProforma();
+  generatePDF();
+}
+
+// Carga los datos y habilita el formulario para editar; al enviar se imprime y guarda.
+function editarProforma(rec) {
+  if (!aplicarRecuperacion(rec)) { alert('No se pudo recuperar la proforma: el vehículo ya no está en el catálogo.'); return; }
+  cerrarBuscarProforma();
+  goToStep(3);
 }
 
 /* =============================================================
@@ -2916,8 +3028,17 @@ function wireEvents() {
     goToStep(3);
   });
 
-  const btnBuscar = document.getElementById('btnBuscarProforma');
-  if (btnBuscar) btnBuscar.addEventListener('click', buscarProformaPorCliente);
+  [document.getElementById('btnBuscarProformaTop'), document.getElementById('btnBuscarProforma')]
+    .forEach(b => { if (b) b.addEventListener('click', abrirBuscarProforma); });
+  const bpSearchBtn = document.getElementById('bpSearchBtn');
+  if (bpSearchBtn) bpSearchBtn.addEventListener('click', buscarProformasUI);
+  const bpQuery = document.getElementById('bpQuery');
+  if (bpQuery) bpQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarProformasUI(); } });
+  const bpModal = document.getElementById('buscarProformaModal');
+  if (bpModal) {
+    bpModal.addEventListener('click', (e) => { if (e.target === bpModal) cerrarBuscarProforma(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bpModal.classList.contains('active')) cerrarBuscarProforma(); });
+  }
 
   document.getElementById('leadForm').addEventListener('submit', async (e) => {
     e.preventDefault();

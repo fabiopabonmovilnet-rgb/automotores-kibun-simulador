@@ -2286,7 +2286,7 @@ const esBaseProv = state.planType === 'provincial'; // Provincial conserva "Base
   const sumPriceRow = document.querySelector('#step3 aside > div > .space-y-2 > div.flex.justify-between');
   const sumPriceLabelEl = document.getElementById('sumPriceLabel');
   const sumPriceEl = document.getElementById('sumPrice');
-  if (sumPriceRow) sumPriceRow.classList.toggle('hidden', esBaseProv);
+  if (sumPriceRow) sumPriceRow.classList.add('hidden');
   if (sumPriceLabelEl) sumPriceLabelEl.textContent = esBaseProv ? 'Base imponible' : 'Valor del vehículo';
   if (sumPriceEl) sumPriceEl.textContent = fmt(v ? (esBaseProv ? v.price : getArcaPrecioTotal(v)) : 0);
   document.getElementById('sumInitial').textContent  = '-' + fmt(calc.inicial);
@@ -2350,29 +2350,12 @@ function renderFormSummary() {
   document.getElementById('formSummary').innerHTML = `
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${v.name}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${color}</p></div>
-    <div class="rounded-lg bg-slate-50 p-3" style="${state.planType === 'provincial' ? 'display:none;' : ''}"><p class="text-[10px] uppercase text-slate-500">Base imponible</p><p class="font-semibold">${fmt(state.planType === 'provincial' ? v.price : v.price)}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3" style="display:none;"><p class="text-[10px] uppercase text-slate-500">Base imponible</p><p class="font-semibold">${fmt(v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt((state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz') ? getArcaPrecioTotal(v) : v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${calc.plan}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Inicial</p><p class="font-semibold">${fmt(calc.inicial)} (${(getInitialPct()*100).toFixed(1)}%)</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">A financiar</p><p class="font-semibold">${fmt(calc.montoFinanciar)}</p></div>
-    ${calc.costosContado && calc.costosContado > 0 ? `
-    <div class="sm:col-span-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
-      <p class="text-[10px] uppercase font-bold text-amber-700 mb-2">Costos adicionales — Pago de contado (junto con la inicial)</p>
-      <div class="space-y-1 text-xs">
-        ${calc.comision > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Comisión / Flat</span><span class="font-semibold">${fmt(calc.comision)}</span></div>` : ''}
-        ${calc.notaria > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Notaría</span><span class="font-semibold">${fmt(calc.notaria)}</span></div>` : ''}
-        ${calc.logistica > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Logística</span><span class="font-semibold">${fmt(calc.logistica)}</span></div>` : ''}
-        ${calc.admin > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Administración</span><span class="font-semibold">${fmt(calc.admin)}</span></div>` : ''}
-        ${calc.seguroVehiculo > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Seguro vehicular</span><span class="font-semibold">${fmt(calc.seguroVehiculo)}</span></div>` : ''}
-        ${calc.polizaVida > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Póliza de vida</span><span class="font-semibold">${fmt(calc.polizaVida)}</span></div>` : ''}
-        ${state.planType === 'v13' ? '' : `<div class="flex justify-between"><span class="text-amber-600">IVA (16%)</span><span class="font-semibold">${fmt(calc.iva)}</span></div>`}
-        ${state.planType === 'v13' ? '' : `<div class="flex justify-between"><span class="text-amber-600">IGTF (3%)</span><span class="font-semibold">${fmt(calc.igtf)}</span></div>`}
-        ${state.planType === 'v13' ? '' : (calc.gastos > 0 ? `<div class="flex justify-between"><span class="text-amber-600">Trámites y Gastos</span><span class="font-semibold">${fmt(calc.gastos)}</span></div>` : '')}
-        <hr class="border-amber-300">
-        <div class="flex justify-between font-bold text-amber-800"><span>Total contado adicional</span><span>${fmt(calc.costosContado)}</span></div>
-      </div>
-    </div>` : ''}
     <div class="rounded-lg bg-hyundai text-white p-3 sm:col-span-2">
       <p class="text-[10px] uppercase opacity-80">${calc.sistema === 'aleman' ? 'Cuota Mes 1 (Inicial)' : 'Cuota estimada'}</p>
       <p class="text-2xl font-extrabold">${fmt(calc.cuotaMensual)} / mes</p>
@@ -2816,7 +2799,6 @@ function buildPDFHTML(calc, advisor) {
   // --- 1) Encabezado Institucional ---
   const headerHTML = '<div style="display:flex; align-items:flex-start; justify-content:space-between; padding-bottom:2px; gap:8px;">'
     + '<div style="display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0;">'
-    +   '<div style="width:36px; height:36px; min-width:36px; background:linear-gradient(135deg,#002C5F,#00AAD2); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16pt; border-radius:6px; box-shadow:0 1px 2px rgba(0,44,95,0.18);">K</div>'
     +   '<img src="img/logo_hyundai.jpg" alt="Logo Hyundai" style="width:44px; height:20px; min-width:44px;" />'
     +   '<div style="flex:1 1 auto; min-width:0; overflow:hidden;">'
     +     '<div style="color:#002C5F; font-size:11pt; font-weight:900; line-height:1.1; letter-spacing:0.2px;">AUTOMOTORES KIBUN C.A.</div>'
@@ -2889,7 +2871,6 @@ function buildPDFHTML(calc, advisor) {
     + '<div class="pdf-bar">BLOQUE 3: ESTRUCTURA DE COSTOS / DESGLOSE FINANCIERO</div>'
     + '<div style="padding:1px 0;">'
     + '<div style="display:flex; flex-wrap:wrap;">'
-    + (state.planType === 'provincial' ? '' : pdfField('PRECIO BASE IMPONIBLE $ USA', fmt(basePrice)))
     + pdfField('GASTOS ADMINISTRATIVOS VARIOS (TRÁMITES Y GASTOS)', fmt(gastosAdmin))
     + pdfField('I.V.A. (16%)', fmt(ivaAmt))
     + pdfField('I.G.T.F. (3%)', fmt(igtfAmt))

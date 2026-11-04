@@ -449,6 +449,7 @@
             <div class="flex justify-between text-hyundai font-bold text-base"><span>Monto a financiar</span><span id="sumFinanced">$0.00</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Tasa aplicada</span><span class="font-semibold" id="sumRate">—</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Plazo</span><span class="font-semibold" id="sumTerm">—</span></div>
+            <div id="sumProvExtras" class="hidden space-y-3"></div>
             <div class="mt-4 rounded-xl bg-hyundai text-white p-4 text-center">
               <p class="text-[11px] uppercase tracking-wider opacity-80" id="sumCuotaLabel">Cuota mensual estimada</p>
               <p class="text-3xl font-extrabold leading-tight" id="sumCuota">$0.00</p>
@@ -715,10 +716,28 @@ const SEGURO_PCT = 0.035;    // 3.5% anual del valor del vehículo (referencial)
    ============================================================= */
 const PROVINCIAL = {
   nombre: 'Banco Provincial (UVC Indexado)',
-  TNA: 0.16, plazo: 48, comisionFlat: 0.005, notaria: 180,
+  TNA: 0.16, plazo: 48, notaria: 180,
   inicialMin: 0.10,
-  // Solo se aprueban iniciales del 10% o 40% sobre (PVP + 50% IVA)
-  allowedInitials: [0.10, 0.40],
+  // Plan 90% (tablas oficiales Provincial, verificadas con Elantra y Grand i10 GL M/T):
+  //   Monto a financiar = 98% del PVP
+  //   Inicial           = Precio del vehículo (total) - Monto a financiar
+  //   Comisión flat 0,5% y Gastos administrativos 0,1% sobre el 90% del PVP
+  //   Total a pagar     = Inicial + Comisión + Gastos adm. + Notaría + Seguro
+  pctFinanciado: 0.98,
+  pctBaseComisiones: 0.90,
+  comisionFlat: 0.005,
+  gastosAdmin: 0.001,
+  // Seguro: monto fijo por modelo (USD). Modelos sin valor en tabla => 0 (no se muestra)
+  seguros: {
+    'Grand i10 GL M/T': 410.30,
+    'Grand i10 GL A/T': 465.17,
+    'Grand i10 GLS A/T': 502.29,
+    'Creta 1.5L A/T': 595.20,
+    'Elantra 2.0L A/T': 827.36,
+    'Tucson 2.0L A/T 2WD GLS': 759.02,
+    'Tucson 2.0L A/T 4WD GLX': 901.28
+  },
+  allowedInitials: [0.10],
   // Base imponible para Provincial: PVP + 50% del IVA
   baseFormula: function(pvp, iva) { return pvp; },
   sistema: 'frances'
@@ -1387,6 +1406,10 @@ function getArcaPrecioTotal(v) {
 
 function getInitialAmount() {
   if (!state.selectedVehicle) return 0;
+  if (state.planType === 'provincial') {
+    const sv = state.selectedVehicle;
+    return provincialFijos(sv.price, Number(sv.gastos) || 0, sv.name).inicial;
+  }
   const base = (state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
   if (state.initialMode === 'pct') return base * (state.initialValue / 100);
   return Math.min(state.initialValue, base);
@@ -1394,7 +1417,7 @@ function getInitialAmount() {
 
 function getInitialPct() {
   if (!state.selectedVehicle) return 0;
-  const base = (state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
+  const base = (state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz' || state.planType === 'provincial') ? getArcaPrecioTotal(state.selectedVehicle) : state.selectedVehicle.price;
   return getInitialAmount() / base;
 }
 
@@ -1406,19 +1429,7 @@ function validateInitial() {
   const pct = ia / v.price;
 
   if (state.planType === 'provincial') {
-    const tax = calcularDesglose(v.price, Number(v.gastos) || 0);
-    const base = PROVINCIAL.baseFormula(v.price, tax.iva);
-    const pctBase = ia / base;
-    // Solo permitir 10% o 40% de la base imponible
-    const tol = 0.005; // 0.5% tolerancia
-    const is10 = Math.abs(pctBase - 0.10) < tol;
-    const is40 = Math.abs(pctBase - 0.40) < tol;
-    if (!is10 && !is40) {
-      return {
-        valid: false,
-        message: `Provincial solo aprueba iniciales del 10% o 40% sobre el precio del vehiculo ($${base.toLocaleString()}). Tu inicial ($${ia.toLocaleString()}) equivale al ${(pctBase*100).toFixed(1)}%.`
-      };
-    }
+    // Plan 90%: la inicial es fija (Precio del vehículo - 98% PVP), siempre válida
     return { valid: true, message: '' };
   }
 
@@ -1628,14 +1639,31 @@ function calcCTZSchedule(M, annualRate, n) {
 }
 
 // === MOTOR PROVINCIAL ===
-// Base imponible: PVP + 50% del IVA. Financia 90% (inicial 10%) o 60% (inicial 40%).
-function calcProvincial(price, initialAmount, gastos = 0) {
+// Plan 90%: financia 98% del PVP; la inicial cubre el resto del Precio del vehículo.
+// Comisión flat (0,5%) y Gastos adm. (0,1%) sobre el 90% del PVP. Notaría $180 + Seguro fijo por modelo.
+function provincialFijos(price, gastos = 0, modelName = '') {
+  const r2 = (x) => Math.round(x * 100) / 100;
   const tax = calcularDesglose(price, gastos);
-  const baseImponible = PROVINCIAL.baseFormula(price, tax.iva);
-  const comision = (baseImponible - initialAmount) * PROVINCIAL.comisionFlat;
+  const montoFinanciar = r2(price * PROVINCIAL.pctFinanciado);
+  const inicial = r2(tax.totalFinal - montoFinanciar);
+  const baseComisiones = price * PROVINCIAL.pctBaseComisiones;
+  const comision = r2(baseComisiones * PROVINCIAL.comisionFlat);
+  const gastosAdminPlan = r2(baseComisiones * PROVINCIAL.gastosAdmin);
+  const seguro = PROVINCIAL.seguros[modelName] || 0;
   const notaria = PROVINCIAL.notaria;
-  const montoFinanciar = baseImponible - initialAmount;
-  const costosContado = comision + notaria + tax.iva + tax.igtf + tax.gastos;
+  const totalPagar = r2(inicial + comision + gastosAdminPlan + notaria + seguro);
+  return { tax, montoFinanciar, inicial, comision, gastosAdminPlan, seguro, notaria, totalPagar };
+}
+
+function calcProvincial(price, initialAmount, gastos = 0, modelName = '') {
+  const p = provincialFijos(price, gastos, modelName);
+  const tax = p.tax;
+  const baseImponible = PROVINCIAL.baseFormula(price, tax.iva);
+  const comision = p.comision;
+  const notaria = p.notaria;
+  const montoFinanciar = p.montoFinanciar;
+  initialAmount = p.inicial;
+  const costosContado = comision + p.gastosAdminPlan + notaria + p.seguro + tax.iva + tax.igtf + tax.gastos;
   const M = montoFinanciar;
   const cuota = calcFrench(M, PROVINCIAL.TNA, PROVINCIAL.plazo);
   return {
@@ -1643,6 +1671,7 @@ function calcProvincial(price, initialAmount, gastos = 0) {
     detalle: `Banco Provincial · 48 meses · TNA ${(PROVINCIAL.TNA*100).toFixed(0)}%`,
     plan: 'Banco Provincial (UVC Indexado)',
     precio: price, inicial: initialAmount, baseImponible, comision, notaria, logistica: 0, admin: 0,
+    comisionFlat: comision, gastoAdmin: p.gastosAdminPlan, seguroVehiculo: p.seguro, totalPagar: p.totalPagar,
     iva: tax.iva, igtf: tax.igtf, gastos: tax.gastos, subtotalFiscal: price, totalFiscal: tax.totalFinal,
     costosContado,
     montoFinanciar: M, plazo: PROVINCIAL.plazo, tasa: PROVINCIAL.TNA,
@@ -1788,7 +1817,7 @@ function getActiveCalc() {
   const v = state.selectedVehicle;
   const ia = getInitialAmount();
   const gastos = Number(v.gastos) || 0;
-  if (state.planType === 'provincial') return calcProvincial(v.price, ia, gastos);
+  if (state.planType === 'provincial') return calcProvincial(v.price, ia, gastos, v.name);
   if (state.planType === 'ctz')        return calcCTZ(v.price, ia, state.ctzPlanId, gastos);
   if (state.planType === 'pivca')      return calcPivca(v.price, ia, state.pivcaTerm, gastos);
   if (state.planType === 'v13')        return calcArca(v.price, ia, state.v13Term, gastos);
@@ -2047,38 +2076,27 @@ function updatePlanOptions() {
   if (state.planType === 'provincial') {
     const v = state.selectedVehicle;
     const price = v ? v.price : 0;
-    const tax = calcularDesglose(price, Number(v?.gastos) || 0);
-    const base = PROVINCIAL.baseFormula(price, tax.iva);
-    const inicial10 = (base * 0.10).toFixed(2);
-    const inicial40 = (base * 0.40).toFixed(2);
-    const financiado10 = (base * 0.90).toFixed(2);
-    const financiado40 = (base * 0.60).toFixed(2);
+    const p = provincialFijos(price, Number(v?.gastos) || 0, v ? v.name : '');
+    const cuota = calcFrench(p.montoFinanciar, PROVINCIAL.TNA, PROVINCIAL.plazo);
+    const fila = (lbl, val, strong) => `<div class="flex justify-between py-1 border-b border-blue-100"><span>${lbl}</span><span class="${strong ? 'font-bold' : ''}">${fmt(val)}</span></div>`;
     wrap.innerHTML = `
       <div class="grid sm:grid-cols-2 gap-3 text-sm">
         <div class="rounded-lg bg-slate-50 p-3"><b>Tasa Nominal Anual:</b> 16.00%</div>
         <div class="rounded-lg bg-slate-50 p-3"><b>Plazo:</b> 48 meses (fijo)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Sistema:</b> Cuota fija (francés)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 0.50% sobre financiado</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $180 (fijos)</div>
-        <div class="rounded-lg bg-slate-50 p-3"><b>Iniciales válidas:</b> 10% o 40%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Comisión Flat:</b> 0,50% · <b>Gastos Adm.:</b> 0,10%</div>
+        <div class="rounded-lg bg-slate-50 p-3"><b>Notaría:</b> $180 (fijos) · <b>Seguro:</b> según modelo</div>
       </div>
-      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3 space-y-1">
-        <p class="font-bold text-blue-800">Base Imponible: ${fmt(base)}</p>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="bg-white rounded p-2 border border-blue-100">
-            <p class="font-semibold text-blue-700">Inicial 10%:</p>
-            <p class="text-base font-bold">${fmt(inicial10)}</p>
-            <p class="text-slate-500">Financia: ${fmt(financiado10)}</p>
-          </div>
-          <div class="bg-white rounded p-2 border border-blue-100">
-            <p class="font-semibold text-blue-700">Inicial 40%:</p>
-            <p class="text-base font-bold">${fmt(inicial40)}</p>
-            <p class="text-slate-500">Financia: ${fmt(financiado40)}</p>
-          </div>
-        </div>
-      </div>
-      <div class="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700 mt-2">
-        <b>Importante:</b> Solo se aprueban iniciales del 10% o 40% sobre el precio del vehiculo. Inicial no valida = proforma bloqueada.
+      <div class="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs mt-3">
+        <p class="font-bold text-blue-800 mb-1">Plan de Financiamiento (90%)</p>
+        ${fila('Precio del vehículo', p.tax.totalFinal)}
+        ${fila('Inicial', p.inicial, true)}
+        ${fila('Monto a financiar', p.montoFinanciar, true)}
+        ${fila('Cuotas 48 meses', cuota)}
+        ${fila('Comisión flat', p.comision)}
+        ${fila('Gastos administrativos', p.gastosAdminPlan)}
+        ${fila('Gasto de notaría', p.notaria)}
+        ${p.seguro > 0 ? fila('Seguro', p.seguro) : ''}
+        <div class="flex justify-between pt-2 text-sm font-bold text-blue-900"><span>Total a pagar</span><span>${fmt(p.totalPagar)}</span></div>
       </div>
     `;
   } else if (state.planType === 'ctz') {
@@ -2318,10 +2336,30 @@ const esBaseProv = state.planType === 'provincial'; // Provincial conserva "Base
   }
 
   const basePrecio = ((state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz') && v) ? getArcaPrecioTotal(v) : v.price;
-  const equiv = state.initialMode === 'pct' ? (basePrecio * state.initialValue / 100) : state.initialValue;
+  const equiv = state.planType === 'provincial' ? calc.inicial
+    : (state.initialMode === 'pct' ? (basePrecio * state.initialValue / 100) : state.initialValue);
   document.getElementById('initialEquivalent').textContent = fmt(equiv);
   const minPct = getMinInitialPct();
-  document.getElementById('initialMin').textContent = `Mínimo: ${(minPct*100).toFixed(0)}%`;
+  document.getElementById('initialMin').textContent = state.planType === 'provincial'
+    ? 'Inicial fija del plan Provincial 90%'
+    : `Mínimo: ${(minPct*100).toFixed(0)}%`;
+
+  // Provincial: comisiones, notaría, seguro y total a pagar (solo este plan)
+  const provEx = document.getElementById('sumProvExtras');
+  if (provEx) {
+    if (state.planType === 'provincial') {
+      const row = (l, val) => `<div class="flex justify-between"><span class="text-slate-500">${l}</span><span class="font-semibold">${fmt(val)}</span></div>`;
+      provEx.innerHTML = row('Comisión flat', calc.comisionFlat)
+        + row('Gastos administrativos', calc.gastoAdmin)
+        + row('Gasto de notaría', calc.notaria)
+        + (calc.seguroVehiculo > 0 ? row('Seguro', calc.seguroVehiculo) : '')
+        + `<div class="flex justify-between text-hyundai font-bold"><span>Total a pagar</span><span>${fmt(calc.totalPagar)}</span></div>`;
+      provEx.classList.remove('hidden');
+    } else {
+      provEx.innerHTML = '';
+      provEx.classList.add('hidden');
+    }
+  }
 
   // Mínimos por plan en el campo de inicial (Arca Mayor permite desde 30% sobre el Precio Total)
   const ivEl = document.getElementById('initialValue');
@@ -2895,7 +2933,19 @@ function buildPDFHTML(calc, advisor) {
     + pdfField('INICIAL', fmt(calc.inicial))
     + pdfField('MONTO A FINANCIAR', fmt(calc.montoFinanciar))
     + pdfField('CUOTA MENSUAL ESTIMADA', fmt(calc.cuotaMensual))
+    + (calc.tipo === 'Provincial'
+        ? pdfField('COMISIÓN FLAT', fmt(calc.comisionFlat))
+          + pdfField('GASTOS ADMINISTRATIVOS (PLAN)', fmt(calc.gastoAdmin))
+          + pdfField('GASTO DE NOTARÍA', fmt(calc.notaria))
+          + (calc.seguroVehiculo > 0 ? pdfField('SEGURO', fmt(calc.seguroVehiculo)) : '')
+        : '')
     + '</div>'
+    + (calc.tipo === 'Provincial'
+        ? '<div style="background:#002C5F; color:#fff; font-weight:800; padding:3px 6px; display:flex; justify-content:space-between; align-items:center; margin:2px 4px 0; border-radius:3px;">'
+          + '<span style="font-size:8pt; letter-spacing:0.2px;">TOTAL A PAGAR (INICIAL + GASTOS)</span>'
+          + '<span style="font-size:11pt;">' + fmt(calc.totalPagar) + '</span>'
+          + '</div>'
+        : '')
   + '</div>';
 
   // --- Carta de presentación (conservada) ---

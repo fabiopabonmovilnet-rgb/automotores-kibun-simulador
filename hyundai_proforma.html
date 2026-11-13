@@ -748,14 +748,14 @@ const PROVINCIAL = {
 // NO se consulta Airtable para estos valores. Se define localmente para evitar
 // problemas de CORS/403 y para mantener estable la proforma aunque Airtable cambie.
 const configuracionPrecios = {
-  'Grand i10 GL M/T':        { pvp: 16107.00, iva: 2577.12, igtf:  483.21, gastos: 1472.71, total: 20640.04 },
-  'Grand i10 GL A/T':        { pvp: 18384.12, iva: 2941.46, igtf:  551.52, gastos: 1522.90, total: 23400.00 },
-  'Grand i10 GLS A/T':       { pvp: 19900.00, iva: 3184.00, igtf:  597.00, gastos: 1586.50, total: 25267.50 },
-  'Grand i10 Sedán A/T':     { pvp: 20715.00, iva: 3314.40, igtf:  621.45, gastos: 1610.95, total: 26261.80 },
-  'Accent 1.5L A/T':         { pvp: 25074.58, iva: 4011.93, igtf:  752.24, gastos: 2191.75, total: 32030.50 },
+  'Grand i10 GL M/T':        { pvp: 16712.01, iva: 2673.92, igtf:  501.36, gastos: 1472.71, total: 21360.00 },
+  'Grand i10 GL A/T':        { pvp: 18636.22, iva: 2981.80, igtf:  559.09, gastos: 1522.89, total: 23700.00 },
+  'Grand i10 GLS A/T':       { pvp: 20213.03, iva: 3234.08, igtf:  606.39, gastos: 1586.50, total: 25640.00 },
+  'Grand i10 Sedán A/T':     { pvp: 20965.59, iva: 3354.49, igtf:  628.97, gastos: 1610.95, total: 26560.00 },
+  'Accent 1.5L A/T':         { pvp: 25578.36, iva: 4092.54, igtf:  767.35, gastos: 2191.75, total: 32630.00 },
   'Elantra 2.0L A/T':        { pvp: 32923.00, iva: 5267.68, igtf:  987.69, gastos: 2441.19, total: 41619.56 },
-  'Creta 1.5L A/T':          { pvp: 31030.17, iva: 4964.83, igtf:  930.91, gastos: 2384.45, total: 39310.35 },
-  'Tucson 2.0L A/T 2WD GLS': { pvp: 39900.00, iva: 6384.00, igtf: 1197.00, gastos: 2649.00, total: 50130.00 },
+  'Creta 1.5L A/T':          { pvp: 30517.27, iva: 4882.76, igtf:  915.52, gastos: 2384.45, total: 38700.00 },
+  'Tucson 2.0L A/T 2WD GLS': { pvp: 38866.39, iva: 6218.62, igtf: 1165.99, gastos: 2649.00, total: 48900.00 },
   'Tucson 2.0L A/T 4WD GLX': { pvp: 47600.00, iva: 7616.00, igtf: 1428.00, gastos: 2881.50, total: 59525.50 },
   'Palisade 3.8L A/T AWD':   { pvp:100500.00, iva:16080.00, igtf: 3015.00, gastos: 4468.50, total:124063.50 }
 };
@@ -954,7 +954,7 @@ function getDefaultColor(modelName) {
 const backupData = [
   {
     id: 'grand-i10-gl-mt', name: 'Grand i10 GL M/T',
-    pvp: 16107.00, gastos: 1472.71, price: 16107.00, total: 20640.04,
+    pvp: 16712.01, gastos: 1472.71, price: 16712.01, total: 21360.00,
     category: 'Hatchback',
     specs: {
       motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
@@ -970,7 +970,7 @@ const backupData = [
   },
 {
       id: 'grand-i10-gl-at', name: 'Grand i10 GL A/T',
-      pvp: 18384.12, gastos: 1522.90, price: 18384.12, total: 23400.00,
+      pvp: 18636.22, gastos: 1522.89, price: 18636.22, total: 23700.00,
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3193cb0046aaedb917c144_69823fe186892428b7a8fab3_Grandi10-Hatchback-GL-Plata_.webp',
       specs: {
@@ -987,7 +987,7 @@ const backupData = [
     },
 {
       id: 'grand-i10-gls-at', name: 'Grand i10 GLS A/T',
-      pvp: 19900.00, gastos: 1586.50, price: 19900.00, total: 25267.50,
+      pvp: 20213.03, gastos: 1586.50, price: 20213.03, total: 25640.00,
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/696544b630bc623e59fcb862_Grandi10-Hatchback-GLS-rojo.png',
       specs: {
@@ -1004,7 +1004,7 @@ const backupData = [
     },
 {
       id: 'grand-i10-sedan-at', name: 'Grand i10 Sedán A/T',
-      pvp: 20715.00, gastos: 1610.95, price: 20715.00, total: 26261.80,
+      pvp: 20965.59, gastos: 1610.95, price: 20965.59, total: 26560.00,
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/695d6ee0057d4f637c28595b_Grandi10%20sedan%20fondo%20transparente.png',
       specs: {
@@ -1021,7 +1021,7 @@ const backupData = [
     },
 {
       id: 'accent-15-at', name: 'Accent 1.5L A/T',
-      pvp: 25074.58, gastos: 2191.75, price: 25074.58, total: 32030.50,
+      pvp: 25578.36, gastos: 2191.75, price: 25578.36, total: 32630.00,
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/69d444234c01074f6c41678a_Accent-blanco.png',
       specs: {
@@ -1055,7 +1055,7 @@ const backupData = [
     },
 {
       id: 'creta-15-at', name: 'Creta 1.5L A/T',
-      pvp: 31030.17, gastos: 2384.45, price: 31030.17, total: 39310.35,
+      pvp: 30517.27, gastos: 2384.45, price: 30517.27, total: 38700.00,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/699dc30fedebb4b0d6d72a19_Creta%20Blanco_.png',
       specs: {
@@ -1073,7 +1073,7 @@ const backupData = [
     },
 {
       id: 'tucson-2wd-gls', name: 'Tucson 2.0L A/T 2WD GLS',
-      pvp: 39900.00, gastos: 2649.00, price: 39900.00, total: 50130.00,
+      pvp: 38866.39, gastos: 2649.00, price: 38866.39, total: 48900.00,
       category: 'SUV Premium',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3194cf8148fdae01c4db46_69651ebc37abd4c7b56c5c58_Tucson-premium-Azul%20_.webp',
       specs: {

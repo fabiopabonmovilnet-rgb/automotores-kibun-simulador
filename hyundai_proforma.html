@@ -938,6 +938,22 @@ function getDefaultColor(modelName) {
   return VEHICLE_COLORS[0].name;
 }
 
+/* Etiquetas legibles para la ficha técnica (las claves de `specs` son el título) */
+const SPEC_LABELS = {
+  motor:       'Motor',
+  transmision: 'Transmisión',
+  traccion:    'Tracción',
+  direccion:   'Dirección',
+  capacidad:   'Capacidad',
+  consumo:     'Consumo',
+  seguridad:   'Seguridad',
+  exterior:    'Exterior',
+  interior:    'Interior',
+  garantia:    'Garantía',
+  destacado1:  'Destacado 1',
+  destacado2:  'Destacado 2'
+};
+
 /* =============================================================
    3) CATÁLOGO DE VEHÍCULOS (RESPALDO LOCAL)
    =============================================================
@@ -957,15 +973,15 @@ const backupData = [
     pvp: 16712.01, gastos: 1472.71, price: 16712.01, total: 21360.00,
     category: 'Hatchback',
     specs: {
-      motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
-      transmision:  'Manual de 5 velocidades + reversa',
-      direccion:    'Eléctrica asistida (MDPS)',
-      capacidad:    '5 pasajeros · Tanque 37 L',
-      consumo:      '17.2 km/L ciudad · 22.5 km/L carretera',
-      seguridad:    'Doble airbag frontal · ABS + EBD · Control de estabilidad VSM · Asistente de arranque en pendiente HAC · Anclajes ISOFIX · Inmovilizador',
-      exterior:     'Llantas 165/70 R14 acero · Faros halógenos · Espejos laterales eléctricos con direccional',
-      interior:     'Aire acondicionado manual · Vidrios eléctricos delanteros · Cierre centralizado · Radio AM/FM/USB/Aux con 4 parlantes · Computador a bordo',
-      garantia:     '3 años o 100,000 km'
+      motor:        '1.2L DCVVT 16 válvulas · 4 cilindros en línea · 1.197 cc · 82 HP @ 6.000 rpm · 114 Nm @ 4.000 rpm · Inyección electrónica multipunto · Gasolina',
+      transmision:  'Manual de 5 velocidades',
+      traccion:     'Delantera',
+      direccion:    'Asistida eléctrica',
+      capacidad:    '5 pasajeros · Tanque 37 L · Peso vacío 917 kg · Peso bruto 1.400 kg',
+      seguridad:    'Sistema de 6 airbags (2 frontales, 2 laterales delanteros y 2 de cortina) · ABS · ESC · HAC · Inmovilizador · Seguro para niños en puertas traseras',
+      exterior:     'Rines de aluminio 15" · Cauchos 175/60 R15 · Discos 13" delanteros y tambor 8" traseros · Espejos ajustables electrónicamente · Llave retráctil con apertura remota de puertas y maleta',
+      interior:     'Aire acondicionado · Vidrios y seguros eléctricos · Tapicería de tela · Ajuste manual de asientos · Asientos traseros abatibles 60/40 · Audio MP3, USB-C y Bluetooth',
+      garantia:     '3 años o 125.000 km'
     }
   },
 {
@@ -974,15 +990,15 @@ const backupData = [
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/6a3193cb0046aaedb917c144_69823fe186892428b7a8fab3_Grandi10-Hatchback-GL-Plata_.webp',
       specs: {
-        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
+        motor:        '1.2L DCVVT 16 válvulas · 4 cilindros en línea · 1.197 cc · 82 HP @ 6.000 rpm · 114 Nm @ 4.000 rpm · Inyección electrónica multipunto · Gasolina',
         transmision:  'Automática de 4 velocidades',
-        direccion:    'Eléctrica asistida (MDPS)',
-        capacidad:    '5 pasajeros · Tanque 37 L',
-        consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
-        seguridad:    'Doble airbag frontal · ABS + EBD · Control de estabilidad VSM · HAC · ISOFIX · Inmovilizador',
-        exterior:     'Llantas 175/60 R15 · Faros halógenos con luz de día · Espejos eléctricos',
-        interior:     'A/C manual · Vidrios eléctricos del/tras · Cierre centralizado · Radio AM/FM/USB/Aux/Bluetooth · 4 parlantes · Computador a bordo',
-        garantia:     '3 años o 125,000 km'
+        traccion:     'Delantera',
+        direccion:    'Asistida eléctrica',
+        capacidad:    '5 pasajeros · Tanque 37 L · Peso vacío 917 kg · Peso bruto 1.400 kg',
+        seguridad:    'Sistema de 6 airbags (2 frontales, 2 laterales delanteros y 2 de cortina) · ABS · ESC · HAC · Inmovilizador · Seguro para niños en puertas traseras',
+        exterior:     'Rines de aluminio 15" · Cauchos 175/60 R15 · Discos 13" delanteros y tambor 8" traseros · Espejos ajustables electrónicamente · Llave retráctil con apertura remota de puertas y maleta',
+        interior:     'Aire acondicionado · Vidrios y seguros eléctricos · Tapicería de tela · Ajuste manual de asientos · Asientos traseros abatibles 60/40 · Audio MP3, USB-C y Bluetooth',
+        garantia:     '3 años o 125.000 km'
       }
     },
 {
@@ -991,15 +1007,15 @@ const backupData = [
       category: 'Hatchback',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/696544b630bc623e59fcb862_Grandi10-Hatchback-GLS-rojo.png',
       specs: {
-        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP @ 6,000 rpm · 11.6 kg·m @ 4,000 rpm',
-        transmision:  'Automática de 4 velocidades con modo manual secuencial',
-        direccion:    'Eléctrica asistida (MDPS)',
-        capacidad:    '5 pasajeros · Tanque 37 L',
-        consumo:      '16.4 km/L ciudad · 21.6 km/L carretera',
-        seguridad:    'Doble airbag frontal + laterales + de cortina · ABS + EBD · VSM · HAC · Cámara de reversa · Sensores traseros · ISOFIX',
-        exterior:     'Llantas 175/60 R15 aleación · Faros halógenos con luz de día LED · Espejos eléctricos abatibles · Manijas cromadas',
-        interior:     'A/C automático digital · Vidrios eléctricos (4) · Botón de encendido · Pantalla táctil 8" Apple CarPlay/Android Auto · Bluetooth · 6 parlantes · Volante forrado en cuero',
-        garantia:     '3 años o 125,000 km'
+        motor:        '1.2L DCVVT 16 válvulas · 4 cilindros en línea · 1.197 cc · 82 HP @ 6.000 rpm · 114 Nm @ 4.000 rpm · Inyección electrónica multipunto · Gasolina',
+        transmision:  'Automática de 4 velocidades',
+        traccion:     'Delantera',
+        direccion:    'Asistida eléctrica',
+        capacidad:    '5 pasajeros · Tanque 37 L · Peso vacío 917 kg · Peso bruto 1.400 kg',
+        seguridad:    'Sistema de 6 airbags (2 frontales, 2 laterales delanteros y 2 de cortina) · ABS · ESC · HAC · Sensor y cámara de retroceso · Inmovilizador · Seguro para niños en puertas traseras',
+        exterior:     'Rines de aluminio 15" · Cauchos 175/60 R15 · Discos 13" delanteros y tambor 8" traseros · Faros DRL · Espejos ajustables electrónicamente · Llave retráctil con apertura remota de puertas y maleta',
+        interior:     'Encendido por botón · Aire acondicionado · Vidrios y seguros eléctricos · Tapicería de tela · Ajuste manual de asientos · Asientos traseros abatibles 60/40 · Pantalla LCD 8" con Apple CarPlay y Android Auto · Audio MP3, USB-C y Bluetooth',
+        garantia:     '3 años o 125.000 km'
       }
     },
 {
@@ -1008,15 +1024,15 @@ const backupData = [
       category: 'Sedan',
       imageUrl: 'https://cdn.prod.website-files.com/695d3a709b2e0524dd305631/695d6ee0057d4f637c28595b_Grandi10%20sedan%20fondo%20transparente.png',
       specs: {
-        motor:        '1.2L Kappa Dual VTVT · 4 cilindros · 83 HP · 11.6 kg·m',
+        motor:        '1.2L DCVVT 16 válvulas · 4 cilindros en línea · 1.197 cc · 82 HP @ 6.000 rpm · 114 Nm @ 4.000 rpm · Inyección electrónica multipunto · Gasolina',
         transmision:  'Automática de 4 velocidades',
-        direccion:    'Eléctrica asistida (MDPS)',
-        capacidad:    '5 pasajeros · Baúl 420 L · Tanque 37 L',
-        consumo:      '16.0 km/L ciudad · 21.0 km/L carretera',
-        seguridad:    'Doble airbag frontal + de cortina · ABS + EBD · VSM · HAC · ISOFIX',
-        exterior:     'Llantas 165/70 R14 · Faros halógenos · Espejos eléctricos con direccional',
-        interior:     'A/C manual · Vidrios eléctricos delanteros · Cierre centralizado · Radio AM/FM/USB/Aux · 4 parlantes',
-        garantia:     '3 años o 125,000 km'
+        traccion:     'Delantera',
+        direccion:    'Asistida eléctrica',
+        capacidad:    '5 pasajeros · Baúl 402 L · Tanque 37 L · Peso vacío 937 kg',
+        seguridad:    'Sistema de 6 airbags (2 frontales, 2 laterales delanteros y 2 de cortina) · ABS · ESC · HAC · PDW (advertencia de distancia de estacionamiento) · Sensor y cámara de retroceso',
+        exterior:     'Rines de aluminio 15" · Cauchos 175/60 R15 · Discos 14" delanteros y tambor 8" traseros · Retrovisores ajustables y abatibles eléctricamente · Control automático de luces · Faros DRL',
+        interior:     'Encendido por botón · Aire acondicionado · Vidrios y seguros eléctricos · Tapicería de tela con detalles en cuero · Asiento del piloto con ajuste manual en 6 direcciones · Pantalla de infoentretenimiento 8" · Apple CarPlay/Android Auto + Bluetooth · USB-C (1 al frente y 1 atrás)',
+        garantia:     '3 años o 125.000 km'
       }
     },
 {
@@ -1950,7 +1966,7 @@ function renderVehicleGrid() {
           </summary>
           <dl class="mt-2 text-xs space-y-1 text-slate-600">
             ${Object.entries(v.specs).map(([k,val]) => `
-              <div><dt class="font-semibold text-slate-700 inline">${k.charAt(0).toUpperCase()+k.slice(1)}: </dt><dd class="inline">${val}</dd></div>
+              <div><dt class="font-semibold text-slate-700 inline">${SPEC_LABELS[k] || (k.charAt(0).toUpperCase()+k.slice(1))}: </dt><dd class="inline">${val}</dd></div>
             `).join('')}
           </dl>
         </details>
@@ -2509,7 +2525,8 @@ async function fetchVehiculos() {
       const name = (f.Name || '').toString().trim();
       if (!name) continue;
 
-      const staticMatch = backupData.find(v => normalize(v.name) === normalize(name));
+      const staticMatch = backupData.find(v => normalize(v.name) === normalize(name))
+                       || backupData.find(v => normalize(v.name) === normalize(nombreCanonico(name)));
 
       const cfgOficial = configuracionPrecios[name];
       const canonico = staticMatch ? staticMatch.name
@@ -2597,8 +2614,8 @@ async function fetchVehiculos() {
           ...staticMatch.specs,
           motor: motor || staticMatch.specs.motor,
           transmision: transmision || staticMatch.specs.transmision,
-          destacado1: dest1,
-          destacado2: dest2
+          ...(dest1 ? { destacado1: dest1 } : {}),
+          ...(dest2 ? { destacado2: dest2 } : {})
         } : {
           motor: motor,
           transmision: transmision,

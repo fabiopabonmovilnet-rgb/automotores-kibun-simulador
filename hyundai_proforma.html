@@ -709,6 +709,21 @@ const vehicleImages = {"Accent 1.5L A/T":"data:image/png;base64,iVBORw0KGgoAAAAN
 // En GitHub Pages sin Netlify, el catálogo cae a backupData (modo demo)
 const API_PROXY_URL = 'https://golden-panda-ad9398.netlify.app/.netlify/functions/airtable-proxy';
 
+// Escaping centralizado: todo dato que vuelve de Airtable/localStorage o del
+// formulario se renderiza como texto, nunca como HTML/JS.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+function safeImgUrl(u) {
+  const s = String(u == null ? '' : u).trim();
+  return /^(https:\/\/|data:image\/|blob:)/i.test(s) ? s : '';
+}
+function cleanText(s) {
+  return String(s == null ? '' : s).replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 const SEGURO_PCT = 0.035;    // 3.5% anual del valor del vehículo (referencial)
 
 /* =============================================================
@@ -1265,12 +1280,14 @@ function buscarVehiculoRec(rec) {
   return v;
 }
 
-// Trae los leads desde Airtable (vía proxy serverless). Máx 100 más recientes.
-async function fetchLeadsFromAirtable() {
+// Busca SOLO las proformas del cliente en el servidor. El proxy filtra con
+// filterByFormula en Airtable, de modo que ningún visitante reciba los leads
+// de otras personas (PII).
+async function fetchMisProformas(q) {
   const res = await fetch(API_PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ operation: 'fetchLeads' })
+    body: JSON.stringify({ operation: 'findMisProformas', q: q })
   });
   if (!res.ok) throw new Error('Proxy respondio ' + res.status);
   const json = await res.json();
@@ -1396,13 +1413,11 @@ async function buscarProformasUI() {
     .filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq))
     .map(r => Object.assign({ _source: 'local' }, r));
 
-  // 2) Airtable (base de datos de leads)
+  // 2) Airtable (base de datos de leads): el filtrado lo hace el servidor.
   let remotos = [], airErr = '';
   try {
-    const records = await fetchLeadsFromAirtable();
-    remotos = records
-      .map(r => leadToRecord(r.fields || {}))
-      .filter(r => normSearch(r.cedula).includes(nq) || normSearch(r.name).includes(nq));
+    const records = await fetchMisProformas(q);
+    remotos = records.map(r => leadToRecord(r.fields || {}));
   } catch (e) {
     airErr = e.message || String(e);
   }
@@ -1419,7 +1434,7 @@ async function buscarProformasUI() {
 
   if (!merged.length) {
     cont.innerHTML = '<p class="text-sm text-amber-600">No se encontró ninguna proforma previa con los datos ingresados.'
-      + (airErr ? '<br><span class="text-xs text-slate-400">(Airtable no respondió: ' + airErr + ')</span>' : '') + '</p>';
+      + (airErr ? '<br><span class="text-xs text-slate-400">(Airtable no respondió: ' + esc(airErr) + ')</span>' : '') + '</p>';
     return;
   }
 
@@ -1432,8 +1447,8 @@ async function buscarProformasUI() {
     return `
     <div class="rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
       <div class="text-sm">
-        <p class="font-bold text-hyundai">${r.name} <span class="text-slate-400 font-normal">· ${r.cedula || ''}</span>${badge}</p>
-        <p class="text-xs text-slate-500">${code} · ${fecha} · ${r.vehicleName || ''} · ${r.bank || ''} · ${r.term || ''}m</p>
+        <p class="font-bold text-hyundai">${esc(r.name)} <span class="text-slate-400 font-normal">· ${esc(r.cedula || '')}</span>${badge}</p>
+        <p class="text-xs text-slate-500">${esc(code)} · ${esc(fecha)} · ${esc(r.vehicleName || '')} · ${esc(r.bank || '')} · ${esc(r.term || '')}m</p>
         <p class="text-xs text-slate-500">Cuota: ${fmt(r.cuota)} · Inicial: ${fmt(r.inicial)}</p>
       </div>
       <div class="flex gap-2">
@@ -1984,34 +1999,32 @@ function renderVehicleGrid() {
   grid.innerHTML = filtered.map(v => {
     const tax = calcularDesglose(Number(v.pvp) || Number(v.price) || 0, Number(v.gastos) || 0);
     const defaultColor = getDefaultColor(v.name);
-    const baseImg = imgSrc(v.name, v.imageUrl);
-    const initColorUrl = getColorImageUrl(v.name, defaultColor);
+    const baseImg = safeImgUrl(imgSrc(v.name, v.imageUrl));
+    const initColorUrl = safeImgUrl(getColorImageUrl(v.name, defaultColor));
     const colorSwatches = VEHICLE_COLORS.filter(c => getColorImageUrl(v.name, c.name)).map(c => `
       <button class="color-swatch w-5 h-5 rounded-full border-2 transition hover:scale-110"
-              style="background:${c.hex};${c.hex==='#FFFFFF'?'border-color:#94A3B8;':'border-color:transparent;'}"
-              title="${c.name}"
-              data-color="${c.name}"
-              data-vehicle="${v.name.replace(/'/g, '')}">
+              style="background:${esc(c.hex)};${c.hex==='#FFFFFF'?'border-color:#94A3B8;':'border-color:transparent;'}"
+              title="${esc(c.name)}"
+              data-color="${esc(c.name)}"
+              data-vehicle="${esc(v.name)}">
       </button>`).join('');
     return `
-    <article class="card-hover bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" data-id="${v.id}" data-baseimg="${baseImg.replace(/'/g, '')}">
+    <article class="card-hover bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" data-id="${esc(v.id)}" data-model="${esc(v.name)}" data-baseimg="${esc(baseImg)}">
       <div class="aspect-[16/10] bg-slate-100 overflow-hidden relative">
-        <img src="${initColorUrl || baseImg}"
-             alt="${v.name}"
+        <img src="${esc(initColorUrl || baseImg)}"
+             alt="${esc(v.name)}"
              loading="lazy"
              class="w-full h-full object-cover card-img"
-             data-clrfb="0"
-             onload="console.info('OK [img] ' + '${v.name.replace(/'/g, '')}')"
-             onerror="smartImgFallback(this,'${v.name.replace(/'/g, '')}','${baseImg.replace(/'/g, '')}');console.warn('ERR [img] ' + '${v.name.replace(/'/g, '')}');" />
-        <div class="color-overlay ${initColorUrl ? '' : 'active'}" style="background:${colorHex(defaultColor)};"></div>
-        <span class="absolute top-2 left-2 bg-hyundai/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase">${v.category || 'Otros'}</span>
+             data-clrfb="0" />
+        <div class="color-overlay ${initColorUrl ? '' : 'active'}" style="background:${esc(colorHex(defaultColor))};"></div>
+        <span class="absolute top-2 left-2 bg-hyundai/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase">${esc(v.category || 'Otros')}</span>
       </div>
       <div class="p-4 flex-1 flex flex-col">
-        <h3 class="font-bold text-hyundai text-lg">${v.name}</h3>
+        <h3 class="font-bold text-hyundai text-lg">${esc(v.name)}</h3>
         <p class="text-2xl font-extrabold text-hyundai2 mt-1">${fmt(tax.totalFinal)}</p>
         <p class="text-[10px] text-slate-500 mt-0.5">IVA ${fmt(tax.iva)} · IGTF ${fmt(tax.igtf)} · Trám. ${fmt(tax.gastos)}</p>
         <div class="color-selector mt-2">
-          <p class="text-[11px] font-semibold text-slate-500 mb-1">Color: <span class="color-label font-medium text-slate-700">${defaultColor}</span></p>
+          <p class="text-[11px] font-semibold text-slate-500 mb-1">Color: <span class="color-label font-medium text-slate-700">${esc(defaultColor)}</span></p>
           <div class="flex flex-wrap gap-1.5">${colorSwatches}</div>
         </div>
         <details class="mt-2 group">
@@ -2020,16 +2033,28 @@ function renderVehicleGrid() {
           </summary>
           <dl class="mt-2 text-xs space-y-1 text-slate-600">
             ${Object.entries(v.specs).map(([k,val]) => `
-              <div><dt class="font-semibold text-slate-700 inline">${SPEC_LABELS[k] || (k.charAt(0).toUpperCase()+k.slice(1))}: </dt><dd class="inline">${val}</dd></div>
+              <div><dt class="font-semibold text-slate-700 inline">${esc(SPEC_LABELS[k] || (k.charAt(0).toUpperCase()+k.slice(1)))}: </dt><dd class="inline">${esc(val)}</dd></div>
             `).join('')}
           </dl>
         </details>
-        <button class="btn-simulate mt-3 w-full gradient-h text-white font-bold py-2.5 rounded-xl hover:opacity-90 transition" data-id="${v.id}">
+        <button class="btn-simulate mt-3 w-full gradient-h text-white font-bold py-2.5 rounded-xl hover:opacity-90 transition" data-id="${esc(v.id)}">
           Simular Financiamiento →
         </button>
       </div>
     </article>`;
   }).join('');
+
+  // Fallback de imágenes sin JS inline (evita inyección desde datos remotos).
+  grid.querySelectorAll('article .card-img').forEach(img => {
+    const article = img.closest('article');
+    const model = article ? article.dataset.model : '';
+    const altSrc = article ? article.dataset.baseimg : '';
+    img.addEventListener('error', () => {
+      window.smartImgFallback(img, model, altSrc);
+      console.warn('ERR [img] ' + model);
+    });
+    img.addEventListener('load', () => console.info('OK [img] ' + model));
+  });
 
   // Click en color swatches del catálogo: actualiza texto + overlay de color + imagen
   grid.querySelectorAll('.color-swatch').forEach(btn => {
@@ -2089,32 +2114,36 @@ function renderSelectedVehicle() {
     return '';
   };
   const color = state.selectedColor || getDefaultColor(v.name);
-  const baseImg = imgSrc(v.name, v.imageUrl);
-  const mainColorUrl = getColorImageUrl(v.name, color);
+  const baseImg = safeImgUrl(imgSrc(v.name, v.imageUrl));
+  const mainColorUrl = safeImgUrl(getColorImageUrl(v.name, color));
   const mainImgSrc = mainColorUrl || baseImg;
   const swatches = VEHICLE_COLORS.filter(c => getColorImageUrl(v.name, c.name)).map(c => `
     <button class="color-swatch-sm w-5 h-5 rounded-full border-2 transition hover:scale-110 ${c.name === color ? 'ring-2 ring-hyundai2 scale-110' : ''}"
-            style="background:${c.hex};${c.hex==='#FFFFFF'?'border-color:#94A3B8;':'border-color:transparent;'}"
-            title="${c.name}"
-            data-color="${c.name}">
+            style="background:${esc(c.hex)};${c.hex==='#FFFFFF'?'border-color:#94A3B8;':'border-color:transparent;'}"
+            title="${esc(c.name)}"
+            data-color="${esc(c.name)}">
     </button>`).join('');
   const initHex = colorHex(color);
   card.innerHTML = `
     <div class="relative w-full sm:w-44 h-28 flex-shrink-0">
-      <img src="${mainImgSrc}" alt="${v.name}" class="w-full h-full object-cover rounded-xl selected-vehicle-img" data-clrfb="0" onerror="smartImgFallback(this,'${v.name.replace(/'/g, '')}','${baseImg.replace(/'/g, '')}')" />
-      <div class="color-overlay rounded-xl ${mainColorUrl ? '' : 'active'}" style="background:${initHex};"></div>
+      <img src="${esc(mainImgSrc)}" alt="${esc(v.name)}" class="w-full h-full object-cover rounded-xl selected-vehicle-img" data-clrfb="0" />
+      <div class="color-overlay rounded-xl ${mainColorUrl ? '' : 'active'}" style="background:${esc(initHex)};"></div>
     </div>
     <div class="flex-1">
       <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Vehículo seleccionado</p>
-      <h3 class="text-xl font-extrabold text-hyundai">${v.name}</h3>
+      <h3 class="text-xl font-extrabold text-hyundai">${esc(v.name)}</h3>
       <p class="text-2xl font-extrabold text-hyundai2 mt-1">${fmt(tax.totalFinal)}</p>
-      <p class="text-xs text-slate-500 mt-1">Motor ${v.specs.motor.split('·')[0]} · ${v.specs.transmision}</p>
+      <p class="text-xs text-slate-500 mt-1">Motor ${esc(v.specs.motor.split('·')[0])} · ${esc(v.specs.transmision)}</p>
       <div class="color-selector mt-2">
-        <p class="text-xs font-semibold text-slate-500">Color: <span class="selected-color-label font-semibold text-hyundai">${color}</span></p>
+        <p class="text-xs font-semibold text-slate-500">Color: <span class="selected-color-label font-semibold text-hyundai">${esc(color)}</span></p>
         <div class="flex flex-wrap gap-1.5 mt-1">${swatches}</div>
       </div>
     </div>
   `;
+  const selectedImg = card.querySelector('.selected-vehicle-img');
+  if (selectedImg) {
+    selectedImg.addEventListener('error', () => window.smartImgFallback(selectedImg, v.name, baseImg));
+  }
   // Swatch click handler: actualiza texto + anillo + overlay de color + imagen
   card.querySelectorAll('.color-swatch-sm').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2456,11 +2485,11 @@ function renderFormSummary() {
   const v = state.selectedVehicle;
   const color = state.selectedColor || getDefaultColor(v ? v.name : null);
   document.getElementById('formSummary').innerHTML = `
-    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${v.name}</p></div>
-    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${color}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Vehículo</p><p class="font-semibold text-hyundai">${esc(v.name)}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Color</p><p class="font-semibold">${esc(color)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3" style="display:none;"><p class="text-[10px] uppercase text-slate-500">Base imponible</p><p class="font-semibold">${fmt(v.price)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Precio</p><p class="font-semibold">${fmt((state.planType === 'v13' || state.planType === 'pivca' || state.planType === 'ctz') ? getArcaPrecioTotal(v) : v.price)}</p></div>
-    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${calc.plan}</p></div>
+    <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Plan</p><p class="font-semibold">${esc(calc.plan)}</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Tasa / Plazo</p><p class="font-semibold">${(calc.tasa*100).toFixed(2)}% · ${calc.plazo}m</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">Inicial</p><p class="font-semibold">${fmt(calc.inicial)} (${(getInitialPct()*100).toFixed(1)}%)</p></div>
     <div class="rounded-lg bg-slate-50 p-3"><p class="text-[10px] uppercase text-slate-500">A financiar</p><p class="font-semibold">${fmt(calc.montoFinanciar)}</p></div>
@@ -2516,7 +2545,7 @@ async function fetchAsesores() {
     })).filter(x => x.nombre);
 
     sel.innerHTML = `<option value="">— Seleccione un asesor —</option>` +
-      records.map(r => `<option value="${r.id}" data-correo="${r.correo}" data-telefono="${r.telefono}">${r.nombre}</option>`).join('');
+      records.map(r => `<option value="${esc(r.id)}" data-correo="${esc(r.correo)}" data-telefono="${esc(r.telefono)}">${esc(r.nombre)}</option>`).join('');
 
     sel.addEventListener('change', () => {
       const opt = sel.selectedOptions[0];
@@ -2736,156 +2765,8 @@ async function saveLead(payload) {
   return json.data;
 }
 
-// Schema management moved to serverless function (ensureLeadsSchema runs server-side)
+// Schema management y credenciales: sólo en la función serverless (nunca en el cliente).
 // Lead backup (localStorage) removed — proxy handles errors and retries internally
-
-// === AUTO-CREAR COLUMNAS EN LA TABLA Vehiculos ===
-var VEHICULOS_PRICING_FIELDS = [
-  { name: 'PVP',            type: 'Number' },
-  { name: 'IVA_16',         type: 'Number' },
-  { name: 'IGTF_3',         type: 'Number' },
-  { name: 'Tramites_Gastos', type: 'Number' },
-  { name: 'Total',          type: 'Number' }
-];
-var VEHICULOS_COLOR_FIELDS = COLOR_NAMES.map(function(cName) {
-  var info = VEHICLE_COLORS.find(function(c) { return c.name === cName; });
-  return { name: info ? info.field : ('Color_' + cName), type: 'URL' };
-});
-async function ensureVehiculosSchema() {
-  try {
-    var ctrl = new AbortController();
-    var t = setTimeout(function() { ctrl.abort(); }, 10000);
-    var metaRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables', {
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY },
-      signal: ctrl.signal
-    });
-    clearTimeout(t);
-    if (!metaRes.ok) {
-      console.warn('[ensureVehiculosSchema] Meta API respondio ' + metaRes.status + '.');
-      console.warn('[ensureVehiculosSchema] Crea MANUALMENTE estas columnas en la tabla Vehiculos de Airtable:');
-      console.table(VEHICULOS_COLOR_FIELDS);
-      return;
-    }
-    var metaData = await metaRes.json();
-    var vehTable = (metaData.tables || []).find(function(t) { return (t.name || '').toLowerCase() === 'vehiculos'; });
-    if (!vehTable) {
-      console.warn('[ensureVehiculosSchema] Tabla Vehiculos no encontrada. Crea manualmente:', VEHICULOS_COLOR_FIELDS);
-      return;
-    }
-    var existingFields = new Set((vehTable.fields || []).map(function(f) { return f.name; }));
-    var allMissing = VEHICULOS_PRICING_FIELDS.concat(VEHICULOS_COLOR_FIELDS).filter(function(f) { return !existingFields.has(f.name); });
-    if (allMissing.length === 0) {
-      console.info('%c[ensureVehiculosSchema] OK columnas ya existen', 'color:#10b981;font-weight:bold;');
-      return;
-    }
-    var ctrl2 = new AbortController();
-    var t2 = setTimeout(function() { ctrl2.abort(); }, 10000);
-    var patchRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables/' + vehTable.id, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: allMissing }),
-      signal: ctrl2.signal
-    });
-    clearTimeout(t2);
-    if (patchRes.ok) {
-      console.info('%c[ensureVehiculosSchema] OK columnas creadas: ' + allMissing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
-    } else {
-      console.warn('[ensureVehiculosSchema] PATCH respondio ' + patchRes.status + '. Crea manualmente:', allMissing);
-    }
-  } catch (err) {
-    console.warn('[ensureVehiculosSchema] Error:', err);
-  }
-}
-
-// Ensure Leads table has all required columns (Direccion, Correo Cliente, etc.)
-async function ensureLeadsSchema() {
-  try {
-    var ctrl = new AbortController();
-    var t = setTimeout(function() { ctrl.abort(); }, 10000);
-    var metaRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables', {
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY },
-      signal: ctrl.signal
-    });
-    clearTimeout(t);
-    if (!metaRes.ok) return;
-    var metaData = await metaRes.json();
-    var leadsTable = (metaData.tables || []).find(function(t) { return (t.name || '').toLowerCase() === 'leads'; });
-    if (!leadsTable) return;
-    var requiredFields = [
-      { name: 'Direccion', type: 'Single line text' },
-      { name: 'Correo Cliente', type: 'Email' }
-    ];
-    var existingFields = new Set((leadsTable.fields || []).map(function(f) { return f.name; }));
-    var missing = requiredFields.filter(function(f) { return !existingFields.has(f.name); });
-    if (missing.length === 0) {
-      console.info('%c[ensureLeadsSchema] OK columnas ya existen', 'color:#10b981;font-weight:bold;');
-      return;
-    }
-    var ctrl2 = new AbortController();
-    var t2 = setTimeout(function() { ctrl2.abort(); }, 10000);
-    var patchRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables/' + leadsTable.id, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: missing }),
-      signal: ctrl2.signal
-    });
-    clearTimeout(t2);
-    if (patchRes.ok) {
-      console.info('%c[ensureLeadsSchema] OK columnas creadas: ' + missing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
-    } else {
-      console.warn('[ensureLeadsSchema] PATCH respondio ' + patchRes.status + '. Crea manualmente:', missing);
-    }
-  } catch (err) {
-    console.warn('[ensureLeadsSchema] Error:', err);
-  }
-}
-
-// Ensure Asesores table has all required columns
-async function ensureAsesoresSchema() {
-  try {
-    var ctrl = new AbortController();
-    var t = setTimeout(function() { ctrl.abort(); }, 10000);
-    var metaRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables', {
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY },
-      signal: ctrl.signal
-    });
-    clearTimeout(t);
-    if (!metaRes.ok) return;
-    var metaData = await metaRes.json();
-    var aTable = (metaData.tables || []).find(function(t) { return (t.name || '').toLowerCase() === 'asesores'; });
-    if (!aTable) return;
-    var requiredFields = [
-      { name: 'Nombre del Asesor', type: 'Single line text' },
-      { name: 'Correo', type: 'Email' },
-      { name: 'Telefono', type: 'Phone number' },
-      { name: 'Activo', type: 'Checkbox' },
-      { name: 'PIN_Hash', type: 'Single line text' },
-      { name: 'ID_Vendedor', type: 'Single line text' }
-    ];
-    var existingFields = new Set((aTable.fields || []).map(function(f) { return f.name; }));
-    var missing = requiredFields.filter(function(f) { return !existingFields.has(f.name); });
-    if (missing.length === 0) {
-      console.info('%c[ensureAsesoresSchema] OK columnas ya existen', 'color:#10b981;font-weight:bold;');
-      return;
-    }
-    var ctrl2 = new AbortController();
-    var t2 = setTimeout(function() { ctrl2.abort(); }, 10000);
-    var patchRes = await fetch('https://api.airtable.com/v0/meta/bases/' + AIRTABLE_BASE_ID + '/tables/' + aTable.id, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + AIRTABLE_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: missing }),
-      signal: ctrl2.signal
-    });
-    clearTimeout(t2);
-    if (patchRes.ok) {
-      console.info('%c[ensureAsesoresSchema] OK columnas creadas: ' + missing.map(function(f) { return f.name; }).join(', '), 'color:#10b981;font-weight:bold;');
-    } else {
-      console.warn('[ensureAsesoresSchema] PATCH respondio ' + patchRes.status + '. Crea manualmente:', missing);
-    }
-  } catch (err) {
-    console.warn('[ensureAsesoresSchema] Error:', err);
-  }
-}
 
 /* =============================================================
    9) PDF
@@ -2895,14 +2776,20 @@ function buildPDFHTML(calc, advisor) {
   const today = new Date().toLocaleDateString('es-VE', { year:'numeric', month:'long', day:'numeric', timeZone: 'America/Caracas' });
   const validUntil = new Date(Date.now() + 15*24*60*60*1000).toLocaleDateString('es-VE', { year:'numeric', month:'long', day:'numeric', timeZone: 'America/Caracas' });
   const f = document.getElementById('leadForm');
+  // Escapamos una sola vez: estos valores sólo se usan dentro del HTML del PDF.
   const data = {
-    name: f.clientName.value, cedula: f.clientCedula.value, phone: f.clientPhone.value, email: f.clientEmail.value,
-    address: f.clientAddress.value || ''
+    name: esc(cleanText(f.clientName.value)), cedula: esc(cleanText(f.clientCedula.value)),
+    phone: esc(cleanText(f.clientPhone.value)), email: esc(cleanText(f.clientEmail.value)),
+    address: esc(cleanText(f.clientAddress.value || ''))
   };
+  const advisorName = esc(cleanText((advisor && advisor.nombre) || '—'));
+  const vehNameEsc = esc(v.name);
+  const advisorFirma = esc(cleanText((advisor && advisor.nombre) || 'Asesor Comercial'));
+  const proformaCodeEsc = esc(state.proformaCode || '');
 
   const colorName = state.selectedColor || getDefaultColor(v.name);
-  const vehImg = getColorImageUrl(v.name, colorName) || v.imageUrl || '';
-  const cat = v.category || obtenerCategoria(v.name) || '—';
+  const vehImg = safeImgUrl(getColorImageUrl(v.name, colorName) || v.imageUrl || '');
+  const cat = esc(v.category || obtenerCategoria(v.name) || '—');
   const uso = 'Particular';
 
   // --- 1) Encabezado Institucional ---
@@ -2920,7 +2807,7 @@ function buildPDFHTML(calc, advisor) {
     +   '<div style="color:#002C5F; font-size:14pt; font-weight:900; line-height:1; letter-spacing:0.3px;">COTIZACIÓN</div>'
     +   '<div style="color:#475569; font-size:6.8pt; margin-top:2px;"><b>Lugar y Fecha:</b> Mérida, ' + today + '</div>'
     +   '<div style="color:#475569; font-size:6.8pt;"><b>Válida hasta:</b> ' + validUntil + '</div>'
-    +   '<div style="color:#475569; font-size:6.5pt; margin-top:2px;"><b>N° Proforma:</b> ' + (state.proformaCode || '') + '</div>'
+    +   '<div style="color:#475569; font-size:6.5pt; margin-top:2px;"><b>N° Proforma:</b> ' + proformaCodeEsc + '</div>'
     + '</div>'
   + '</div>';
 
@@ -2948,25 +2835,25 @@ function buildPDFHTML(calc, advisor) {
     + pdfField('DIRECCIÓN', data.address)
     + pdfField('TELÉFONO', data.phone)
     + pdfField('CORREO', data.email)
-    + pdfField('ASESOR COMERCIAL', advisor.nombre || '—')
+    + pdfField('ASESOR COMERCIAL', advisorName)
     + '</div>'
   + '</div>';
 
   // --- Bloque 2: DATOS DEL VEHÍCULO ---
   const vehThumb = vehImg
-    ? '<div style="text-align:center; padding:2px 0;"><img src="' + vehImg + '" onerror="this.style.display=\'none\';" style="width:120px; height:auto; max-height:60px; object-fit:contain; border-radius:3px; border:1px solid #e2e8f0;" /></div>'
+    ? '<div style="text-align:center; padding:2px 0;"><img src="' + esc(vehImg) + '" alt="" onerror="this.style.display=\'none\';" style="width:120px; height:auto; max-height:60px; object-fit:contain; border-radius:3px; border:1px solid #e2e8f0;" /></div>'
     : '';
   const vehiculoHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">BLOQUE 2: DATOS DEL VEHÍCULO</div>'
     + vehThumb
     + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
     + pdfField('MARCA', 'HYUNDAI')
-    + pdfField('MODELO', v.name)
+    + pdfField('MODELO', vehNameEsc)
     + pdfField('TIPO', cat)
     + pdfField('AÑO', String(new Date().getFullYear()))
     + pdfField('CLASE', /SUV|Palisade|Tucson|Creta/i.test(cat) ? 'Camioneta' : 'Automóvil')
     + pdfField('USO', uso)
-    + pdfField('COLOR', colorName)
+    + pdfField('COLOR', esc(colorName))
     + '</div>'
   + '</div>';
 
@@ -2998,7 +2885,7 @@ function buildPDFHTML(calc, advisor) {
   const finHTML = '<div class="pdf-section evitar-corte">'
     + '<div class="pdf-bar">CONDICIONES DE FINANCIAMIENTO</div>'
     + '<div style="display:flex; flex-wrap:wrap; padding:1px 0;">'
-    + pdfField('ENTIDAD FINANCIERA', calc.plan || planName)
+    + pdfField('ENTIDAD FINANCIERA', esc(calc.plan || planName))
     + pdfField('PLAZO', (calc.plazo || '') + ' MESES')
     + pdfField('TASA APLICADA', calc.tasa != null ? ((calc.tasa * 100).toFixed(2)) + '% TNA' : '—')
     + pdfField('INICIAL', fmt(calc.inicial))
@@ -3021,10 +2908,10 @@ function buildPDFHTML(calc, advisor) {
 
   // --- Carta de presentación (conservada) ---
   const cartaHTML = '<div class="pdf-section evitar-corte">'
-    + '<div class="pdf-bar">CARTA DE PRESENTACIÓN — ' + (calc.plan || planName) + '</div>'
+    + '<div class="pdf-bar">CARTA DE PRESENTACIÓN — ' + esc(calc.plan || planName) + '</div>'
     + '<div style="font-size:7pt; line-height:1.35; color:#334155; padding:4px 6px;">'
-    + '<p style="margin-bottom:3px;"><b>' + destinatario + ':</b></p>'
-    + '<p style="margin-bottom:3px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, quien ha manifestado su interés en adquirir el vehículo <b>' + v.name + '</b> por un valor total de <b>' + fmt(totalVeh) + '</b> USD, bajo las condiciones del plan <b>' + (calc.plan || planName) + '</b>.</p>'
+    + '<p style="margin-bottom:3px;"><b>' + esc(destinatario) + ':</b></p>'
+    + '<p style="margin-bottom:3px;">Por medio de la presente, <b>AUTOMOTORES KIBUN C.A.</b>, RIF ' + EMPRESA.rif + ', con domicilio en ' + EMPRESA.direccion + ', hace llegar a usted la solicitud de financiamiento del cliente <b>' + data.name + '</b>, portador(a) de la cédula/RIF <b>' + data.cedula + '</b>, quien ha manifestado su interés en adquirir el vehículo <b>' + vehNameEsc + '</b> por un valor total de <b>' + fmt(totalVeh) + '</b> USD, bajo las condiciones del plan <b>' + esc(calc.plan || planName) + '</b>.</p>'
     + '<p style="margin-bottom:3px;">Agradecemos confirmar la aprobación del crédito según las condiciones establecidas.</p>'
     + '<p>Atentamente,</p>'
     + '</div>'
@@ -3051,13 +2938,13 @@ function buildPDFHTML(calc, advisor) {
 
   const firmasHTML = '<div style="display:flex; gap:10px; margin-top:4px;">'
     + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
-    +   '<b>' + (advisor.nombre || 'Asesor Comercial') + '</b><br><span style="color:#64748b;">Asesor Comercial · AUTOMOTORES KIBUN C.A.</span>'
+    +   '<b>' + advisorFirma + '</b><br><span style="color:#64748b;">Asesor Comercial · AUTOMOTORES KIBUN C.A.</span>'
     + '</div>'
     + '<div style="flex:1 1 50%; min-width:0; border-top:1.5px solid #002C5F; padding-top:2px; text-align:center; font-size:7pt;">'
     +   '<b>' + data.name + '</b><br><span style="color:#64748b;">' + (data.cedula || '') + ' · Cliente</span>'
     + '</div>'
   + '</div>'
-  + '<div style="margin-top:2px; text-align:center; font-size:6pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + ' · ' + state.proformaCode + '</div>';
+  + '<div style="margin-top:2px; text-align:center; font-size:6pt; color:#94a3b8;">Documento generado por el Simulador Oficial Hyundai — AUTOMOTORES KIBUN C.A. · RIF ' + EMPRESA.rif + ' · ' + proformaCodeEsc + '</div>';
 
   const selloFirmasHTML = '<div class="evitar-corte">'
     + '<div style="font-size:7pt; color:#002C5F; font-weight:700; text-align:center; margin-top:4px;">BLOQUE 4: CIERRE, SELLO Y FIRMAS</div>'
@@ -3281,16 +3168,26 @@ function wireEvents() {
     const sel = document.getElementById('salespersonBranch');
     if (!sel.value) { alert('Selecciona un asesor.'); return; }
 
+    // Validación y limpieza antes de enviar (el proxy vuelve a validar en servidor).
+    const cliente = cleanText(f.clientName.value);
+    const cedula = cleanText(f.clientCedula.value);
+    const telefono = cleanText(f.clientPhone.value);
+    const correo = cleanText(f.clientEmail.value).toLowerCase();
+    if (cliente.length < 2 || cliente.length > 120) { alert('Ingresa un nombre válido.'); return; }
+    if ((cedula.match(/\d/g) || []).length < 6 || cedula.length > 40) { alert('Ingresa una cédula válida.'); return; }
+    if ((telefono.match(/\d/g) || []).length < 7 || telefono.length > 40) { alert('Ingresa un teléfono válido.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo) || correo.length > 160) { alert('Ingresa un correo electrónico válido.'); return; }
+
     const opt = sel.selectedOptions[0];
     const calc = getActiveCalc();
 
     // Payload con los nombres de campo EXACTOS solicitados por el usuario
     const payload = {
-      'Cliente':              (f.clientName.value || '').trim(),
-      'Cedula':               (f.clientCedula.value || '').trim(),
-      'Telefono Cliente':     (f.clientPhone.value || '').trim(),
-      'Direccion':            (f.clientAddress.value || '').trim(),
-      'Correo Cliente':       (f.clientEmail.value || '').trim(),
+      'Cliente':              cliente,
+      'Cedula':               cedula,
+      'Telefono Cliente':     telefono,
+      'Direccion':            cleanText(f.clientAddress.value || '').slice(0, 200),
+      'Correo Cliente':       correo,
       'Vehiculo Interesado':  state.selectedVehicle.name,
       'Color':                state.selectedColor || getDefaultColor(state.selectedVehicle.name),
       'Asesor Asignado':      opt.text,
@@ -3370,7 +3267,7 @@ function showSuccessModal(proformaCode, leadOk, pdfOk, leadErr) {
     errorDetail = `
       <div class="text-left bg-rose-50 border border-rose-200 rounded-xl p-4 mb-4 text-sm">
         <p class="font-bold text-rose-800 mb-2">El lead no se pudo guardar</p>
-        <p class="text-rose-700 text-xs mb-2">Detalle: <span class="font-mono">${(leadErr || '').substring(0, 200)}</span></p>
+        <p class="text-rose-700 text-xs mb-2">Detalle: <span class="font-mono">${esc((leadErr || '').substring(0, 200))}</span></p>
         <p class="text-rose-700 text-xs">Verifique la conexion e intente de nuevo.</p>
       </div>
     `;
@@ -3386,7 +3283,7 @@ function showSuccessModal(proformaCode, leadOk, pdfOk, leadErr) {
           <span class="text-3xl font-black ${allOk ? 'text-emerald-600' : (pdfOk ? 'text-amber-600' : 'text-rose-600')}">${iconChar}</span>
         </div>
         <h3 class="text-xl md:text-2xl font-extrabold text-hyundai mb-1">${titleText}</h3>
-        <p class="text-sm text-slate-500">Codigo: <b class="text-hyundai2">${proformaCode}</b></p>
+        <p class="text-sm text-slate-500">Codigo: <b class="text-hyundai2">${esc(proformaCode)}</b></p>
       </div>
 
       ${errorDetail}
@@ -3457,11 +3354,6 @@ async function init() {
 
     setProgress(70, 'Cargando equipo de asesores comerciales…');
     await fetchAsesores();
-
-    setProgress(85, 'Verificando esquema de tablas...');
-    try { await ensureVehiculosSchema(); } catch (e) { console.warn('[init] ensureVehiculosSchema fallo (no critico).'); }
-    try { await ensureLeadsSchema(); } catch (e) { console.warn('[init] ensureLeadsSchema fallo (no critico).'); }
-    try { await ensureAsesoresSchema(); } catch (e) { console.warn('[init] ensureAsesoresSchema fallo (no critico).'); }
 
     setProgress(100, 'Listo');
     await new Promise(r => setTimeout(r, 300));

@@ -707,7 +707,7 @@ const vehicleImages = {"Accent 1.5L A/T":"data:image/png;base64,iVBORw0KGgoAAAAN
 // Airtable credentials se manejan del lado del servidor (variables de entorno)
 // Ruta relativa: funciona cuando HTML + API están en el mismo dominio (Netlify)
 // En GitHub Pages sin Netlify, el catálogo cae a backupData (modo demo)
-const API_PROXY_URL = 'https://golden-panda-ad9398.netlify.app/.netlify/functions/airtable-proxy';
+const API_PROXY_URL = '/api/airtable-proxy';
 
 // Escaping centralizado: todo dato que vuelve de Airtable/localStorage o del
 // formulario se renderiza como texto, nunca como HTML/JS.

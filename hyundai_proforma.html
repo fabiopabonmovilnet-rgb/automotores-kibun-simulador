@@ -730,7 +730,7 @@ async function apiFetch(body, opts = {}) {
   };
   try {
     const res = await withTimeout(API_PROXY_URL);
-    if (![404, 502, 503, 504].includes(res.status)) return res;
+    if (![404, 405, 501, 502, 503, 504].includes(res.status)) return res;
     console.info('[apiFetch] API local no disponible (' + res.status + '), usando proxy de respaldo.');
   } catch (e) {
     console.info('[apiFetch] API local inalcanzable, usando proxy de respaldo.');
